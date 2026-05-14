@@ -36,7 +36,7 @@ const WelcomeBack = ({ onDismiss, onNavigateHome }: WelcomeBackProps) => {
   const userName = user?.displayName || user?.email?.split("@")[0] || "there";
 
   return (
-    <div className="fixed top-4 left-4 right-4 z-50 animate-slide-down">
+    <div className="fixed top-16 left-4 right-4 z-[300] animate-slide-down isolate sm:top-20">
       <div className="max-w-md mx-auto bg-gradient-to-r from-semkat-orange to-semkat-sky rounded-2xl shadow-2xl p-4 sm:p-6 relative overflow-hidden">
         {/* Animated background effect */}
         <div className="absolute inset-0 bg-white/10 animate-pulse" />

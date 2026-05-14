@@ -12,7 +12,7 @@ const LoadingScreen = () => {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center">
+    <div className="fixed inset-0 z-[300] bg-slate-950 flex items-center justify-center isolate">
       {/* Animated gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-sky-500/20 to-orange-500/20 animate-pulse" />
       

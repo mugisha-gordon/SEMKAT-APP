@@ -80,7 +80,7 @@ const OnboardingWrapper = ({ children }: OnboardingWrapperProps) => {
       
       {/* Onboarding shown as non-blocking modal overlay */}
       {showOnboarding && (
-        <div className="fixed inset-0 z-50 pointer-events-auto">
+        <div className="fixed inset-0 z-[300] pointer-events-auto isolate">
           <Onboarding onComplete={handleCompleteOnboarding} />
         </div>
       )}

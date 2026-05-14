@@ -165,17 +165,17 @@ const Header = () => {
       </div>
 
       {/* Main header */}
-      <div className="container flex flex-wrap md:flex-nowrap min-h-16 h-auto items-center justify-between gap-2 sm:gap-3 relative overflow-hidden">
+      <div className="container flex flex-wrap md:flex-nowrap min-h-16 h-auto items-center justify-between gap-2 sm:gap-3 relative overflow-x-hidden overflow-y-visible">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-20 -left-24 h-56 w-56 rounded-full bg-semkat-sky/15 blur-3xl" />
           <div className="absolute -top-16 -right-24 h-56 w-56 rounded-full bg-semkat-orange/15 blur-3xl" />
         </div>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1 pr-1">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="shrink-0"
+            className="shrink-0 mt-0.5 sm:mt-0"
             onClick={handleBack}
             aria-label="Back"
             title="Back"
@@ -185,7 +185,7 @@ const Header = () => {
 
           <Link
             to="/home"
-            className="flex items-center gap-3 min-w-0"
+            className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3"
             onDoubleClick={(e) => {
               e.preventDefault();
               try {
@@ -217,11 +217,11 @@ const Header = () => {
                 }}
               />
             </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-heading text-lg font-bold text-foreground leading-tight truncate">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="font-heading text-[13px] font-bold leading-snug text-foreground break-words text-balance sm:text-base md:text-lg">
                 Semkat Group Uganda Ltd
               </span>
-              <span className="text-xs text-muted-foreground truncate">{tagline}</span>
+              <span className="text-xs text-muted-foreground break-words line-clamp-2 sm:line-clamp-none">{tagline}</span>
             </div>
           </Link>
         </div>

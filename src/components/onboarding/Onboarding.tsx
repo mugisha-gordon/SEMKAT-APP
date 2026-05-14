@@ -66,7 +66,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
   const Icon = pages[currentPage].icon;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-[300] overflow-hidden isolate">
       {/* Semi-transparent backdrop - app content is visible behind */}
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" />
       
