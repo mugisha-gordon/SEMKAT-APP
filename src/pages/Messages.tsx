@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,12 @@ import { formatDistanceToNowStrict } from "date-fns";
 
 const Messages = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialogFor, setOpenDialogFor] = useState<string | null>(null);
   const [otherNameMap, setOtherNameMap] = useState<Record<string, { name: string; avatar?: string }>>({});
+  const [showJumpBanner, setShowJumpBanner] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -43,11 +46,35 @@ const Messages = () => {
     return () => unsub();
   }, [user]);
 
+  useEffect(() => {
+    const targetUserId = searchParams.get("user");
+    if (!user || !targetUserId) return;
+    if (targetUserId === user.uid) return;
+    setOpenDialogFor(targetUserId);
+    setShowJumpBanner(true);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("user");
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams, user]);
+
+  useEffect(() => {
+    if (!showJumpBanner) return;
+    const timer = setTimeout(() => setShowJumpBanner(false), 2800);
+    return () => clearTimeout(timer);
+  }, [showJumpBanner]);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1 pb-12">
         <section className="container py-10">
+          {showJumpBanner && (
+            <div className="mb-4 rounded-md border border-semkat-orange/40 bg-semkat-orange/10 px-3 py-2 text-xs text-semkat-orange">
+              Jumped from notification
+            </div>
+          )}
           <h1 className="font-heading text-2xl mb-4">Messages</h1>
 
           <Card className="p-4">

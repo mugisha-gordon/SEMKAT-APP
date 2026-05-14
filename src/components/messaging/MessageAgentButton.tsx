@@ -5,8 +5,11 @@ import MessageDialog from "./MessageDialog";
 import { useAuth } from "@/context/AuthContext";
 
 interface MessageAgentButtonProps {
+  /** User or agent ID to message (works for any user) */
   agentId: string;
   agentName?: string;
+  /** Button label: "Message" for any user, "Message Agent" when peer is known to be an agent */
+  label?: string;
   variant?: "default" | "hero" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
   className?: string;
@@ -15,6 +18,7 @@ interface MessageAgentButtonProps {
 const MessageAgentButton = ({
   agentId,
   agentName,
+  label = "Message",
   variant = "hero",
   size = "default",
   className = "",
@@ -40,7 +44,7 @@ const MessageAgentButton = ({
         onClick={handleClick}
       >
         <MessageCircle className="h-4 w-4" />
-        Message Agent
+        {label}
       </Button>
 
       {user && (

@@ -124,8 +124,9 @@ const AdminDashboard = () => {
       
       toast.success('Agent and all associated data deleted successfully');
       setDeleteDialogOpen(false);
+      setAgents((prev) => prev.filter((a) => a.userId !== agentToDelete.userId));
+      setApplications((prev) => prev.filter((a) => a.userId !== agentToDelete.userId));
       setAgentToDelete(null);
-      fetchAgents();
       fetchApplications();
     } catch (error: any) {
       console.error('Error deleting agent:', error);
@@ -177,6 +178,7 @@ const AdminDashboard = () => {
             type: 'success',
             title: 'Agent application approved',
             description: 'Your agent application has been approved. Please sign out and sign in again to access the Agent Dashboard.',
+            targetPath: '/agent-dashboard',
           });
         } catch {}
       } else {
@@ -189,6 +191,7 @@ const AdminDashboard = () => {
             type: 'warning',
             title: 'Agent application rejected',
             description: 'Your agent application was rejected. You can review your details and apply again.',
+            targetPath: '/dashboard',
           });
         } catch {}
       }
@@ -260,23 +263,23 @@ const AdminDashboard = () => {
   const pendingCount = applications.filter(a => a.status === 'pending').length;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
       <main className="flex-1 py-8 sm:py-12">
         <div className="container space-y-6 sm:space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p className="text-white/70 text-xs sm:text-sm">
+              <p className="text-muted-foreground text-xs sm:text-sm">
                 {user?.email === "adminsemkat@gmail.com" ? "Welcome admin" : "Admin Control"}
               </p>
               <h1 className="font-heading text-xl sm:text-3xl font-bold">
                 {user?.email === "adminsemkat@gmail.com" ? "Admin Dashboard" : "Semkat Command Center"}
               </h1>
-              <p className="text-white/60 text-xs sm:text-sm mt-1">Signed in as {user?.email}</p>
+              <p className="text-muted-foreground text-xs sm:text-sm mt-1">Signed in as {user?.email}</p>
             </div>
             <div className="flex flex-wrap gap-2 sm:gap-3">
-              {user && <PropertyPostForm agentId={user.uid} onSuccess={() => {}} />}
+              {user && <PropertyPostForm agentId={user.uid} postedByRole="admin" onSuccess={() => {}} />}
               {user && (
                 <VideoPostForm 
                   onSuccess={() => {
@@ -295,7 +298,7 @@ const AdminDashboard = () => {
                     <span className="sm:hidden">Agent</span>
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-slate-900 border-white/10 text-white max-h-[90vh] overflow-y-auto">
+                <DialogContent className="bg-background border-border text-foreground max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="font-heading text-lg sm:text-xl">Register New Agent</DialogTitle>
                   </DialogHeader>
@@ -307,7 +310,7 @@ const AdminDashboard = () => {
                         onChange={(e) => setRegisterForm(p => ({ ...p, fullName: e.target.value }))}
                         placeholder="Agent full name"
                         required
-                        className="bg-white/5 border-white/20 text-sm"
+                        className="bg-muted border-border text-sm"
                       />
                     </div>
                     <div className="space-y-2">
@@ -318,7 +321,7 @@ const AdminDashboard = () => {
                         onChange={(e) => setRegisterForm(p => ({ ...p, email: e.target.value }))}
                         placeholder="agent@email.com"
                         required
-                        className="bg-white/5 border-white/20 text-sm"
+                        className="bg-muted border-border text-sm"
                       />
                     </div>
                     <div className="space-y-2">
@@ -329,7 +332,7 @@ const AdminDashboard = () => {
                         placeholder="Create a password"
                         required
                         minLength={6}
-                        className="bg-white/5 border-white/20 text-sm"
+                        className="bg-muted border-border text-sm"
                       />
                     </div>
                     <div className="space-y-2">
@@ -338,7 +341,7 @@ const AdminDashboard = () => {
                         value={registerForm.phone}
                         onChange={(e) => setRegisterForm(p => ({ ...p, phone: e.target.value }))}
                         placeholder="+256..."
-                        className="bg-white/5 border-white/20 text-sm"
+                        className="bg-muted border-border text-sm"
                       />
                     </div>
                     <div className="space-y-2">
@@ -347,7 +350,7 @@ const AdminDashboard = () => {
                         value={registerForm.company}
                         onChange={(e) => setRegisterForm(p => ({ ...p, company: e.target.value }))}
                         placeholder="Company name"
-                        className="bg-white/5 border-white/20 text-sm"
+                        className="bg-muted border-border text-sm"
                       />
                     </div>
                     <Button type="submit" variant="hero" className="w-full" disabled={registerLoading}>
@@ -356,25 +359,25 @@ const AdminDashboard = () => {
                   </form>
                 </DialogContent>
               </Dialog>
-              <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 text-xs sm:text-sm" onClick={signOut}>
+              <Button variant="outline" className="text-xs sm:text-sm" onClick={signOut}>
                 Sign out
               </Button>
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            <Card className="bg-white/5 border-white/10 text-white p-5">
+            <Card className="bg-card border-border text-card-foreground p-5">
               <div className="flex items-center gap-3 mb-2">
                 <FileText className="h-5 w-5 text-orange-300" />
                 <h3 className="font-semibold text-lg">Verify documents</h3>
               </div>
-              <p className="text-white/70 text-sm">Review titles, surveys, and legal uploads.</p>
-              <Button variant="outline" className="mt-4 border-white/30 text-white hover:bg-white/10">
+              <p className="text-muted-foreground text-sm">Review titles, surveys, and legal uploads.</p>
+              <Button variant="outline" className="mt-4">
                 Open
               </Button>
             </Card>
             
-            <Card className="bg-white/5 border-white/10 text-white p-5">
+            <Card className="bg-card border-border text-card-foreground p-5">
               <div className="flex items-center gap-3 mb-2">
                 <Users className="h-5 w-5 text-orange-300" />
                 <h3 className="font-semibold text-lg">Manage agents</h3>
@@ -382,26 +385,26 @@ const AdminDashboard = () => {
                   <Badge className="bg-semkat-orange text-white">{pendingCount} pending</Badge>
                 )}
               </div>
-              <p className="text-white/70 text-sm">Approve new agents and their listings.</p>
-              <Button variant="outline" className="mt-4 border-white/30 text-white hover:bg-white/10">
+              <p className="text-muted-foreground text-sm">Approve new agents and their listings.</p>
+              <Button variant="outline" className="mt-4">
                 Open
               </Button>
             </Card>
             
-            <Card className="bg-white/5 border-white/10 text-white p-5">
+            <Card className="bg-card border-border text-card-foreground p-5">
               <div className="flex items-center gap-3 mb-2">
                 <Bell className="h-5 w-5 text-orange-300" />
                 <h3 className="font-semibold text-lg">Platform alerts</h3>
               </div>
-              <p className="text-white/70 text-sm">Broadcast updates and monitor system status.</p>
-              <Button variant="outline" className="mt-4 border-white/30 text-white hover:bg-white/10">
+              <p className="text-muted-foreground text-sm">Broadcast updates and monitor system status.</p>
+              <Button variant="outline" className="mt-4">
                 Open
               </Button>
             </Card>
           </div>
 
           {/* Registered Agents Section */}
-          <Card className="bg-white/5 border-white/10 text-white p-6 mb-6">
+          <Card className="bg-card border-border text-card-foreground p-6 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <div className="flex items-center gap-3 min-w-0">
                 <Users className="h-5 w-5 text-sky-300" />
@@ -415,7 +418,7 @@ const AdminDashboard = () => {
                 size="sm"
                 onClick={fetchAgents}
                 disabled={agentsLoading}
-                className="border-white/30 text-white hover:bg-white/10"
+                className=""
               >
                 Refresh
               </Button>
@@ -424,20 +427,20 @@ const AdminDashboard = () => {
             {agentsLoading ? (
               <div className="text-center py-8">
                 <div className="w-8 h-8 border-4 border-semkat-orange border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-white/60">Loading agents...</p>
+                <p className="text-muted-foreground">Loading agents...</p>
               </div>
             ) : agents.length === 0 ? (
               <div className="text-center py-8">
-                <Users className="h-12 w-12 text-white/20 mx-auto mb-3" />
-                <p className="text-white/60">No registered agents yet</p>
-                <p className="text-white/40 text-sm mt-1">Register an agent using the "Register Agent" button above</p>
+                <Users className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground">No registered agents yet</p>
+                <p className="text-muted-foreground/80 text-sm mt-1">Register an agent using the "Register Agent" button above</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {agents.map((agent) => (
                   <div
                     key={agent.userId}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-muted border border-border hover:bg-muted/80 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-1">
@@ -447,12 +450,12 @@ const AdminDashboard = () => {
                           Active Agent
                         </Badge>
                       </div>
-                      <p className="text-white/60 text-sm">{agent.email}</p>
+                      <p className="text-muted-foreground text-sm">{agent.email}</p>
                       {agent.profile.phone && (
-                        <p className="text-white/50 text-xs mt-1">Phone: {agent.profile.phone}</p>
+                        <p className="text-muted-foreground text-xs mt-1">Phone: {agent.profile.phone}</p>
                       )}
                       {(agent.profile as any).company && (
-                        <p className="text-white/50 text-xs mt-1">Company: {(agent.profile as any).company}</p>
+                        <p className="text-muted-foreground text-xs mt-1">Company: {(agent.profile as any).company}</p>
                       )}
                     </div>
                     <Button
@@ -471,14 +474,14 @@ const AdminDashboard = () => {
           </Card>
 
           {/* Agent Applications Section */}
-          <Card className="bg-white/5 border-white/10 text-white p-6">
+          <Card className="bg-card border-border text-card-foreground p-6">
             <div className="flex items-center gap-3 mb-6">
               <ShieldCheck className="h-5 w-5 text-sky-300" />
               <h3 className="font-heading text-xl font-semibold">Agent Applications</h3>
             </div>
             
             <Tabs defaultValue="pending" className="w-full">
-              <TabsList className="bg-white/5 border-white/10 flex flex-wrap h-auto">
+              <TabsList className="bg-muted border-border flex flex-wrap h-auto">
                 <TabsTrigger value="pending" className="data-[state=active]:bg-semkat-orange">
                   Pending ({applications.filter(a => a.status === 'pending').length})
                 </TabsTrigger>
@@ -493,9 +496,9 @@ const AdminDashboard = () => {
               {['pending', 'approved', 'rejected'].map(status => (
                 <TabsContent key={status} value={status} className="mt-4">
                   {loading ? (
-                    <p className="text-white/60 text-center py-8">Loading applications...</p>
+                    <p className="text-muted-foreground text-center py-8">Loading applications...</p>
                   ) : applications.filter(a => a.status === status).length === 0 ? (
-                    <p className="text-white/60 text-center py-8">No {status} applications</p>
+                    <p className="text-muted-foreground text-center py-8">No {status} applications</p>
                   ) : (
                     <div className="space-y-3">
                       {applications
@@ -503,7 +506,7 @@ const AdminDashboard = () => {
                         .map(app => (
                           <div
                             key={app.id}
-                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-white/5 border border-white/10"
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-muted border border-border"
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-3 mb-1">
@@ -522,9 +525,9 @@ const AdminDashboard = () => {
                                   {status}
                                 </Badge>
                               </div>
-                              <p className="text-white/60 text-sm">{app.email} • {app.phone}</p>
+                              <p className="text-muted-foreground text-sm">{app.email} • {app.phone}</p>
                               {app.company && (
-                                <p className="text-white/50 text-xs mt-1">Company: {app.company}</p>
+                                <p className="text-muted-foreground text-xs mt-1">Company: {app.company}</p>
                               )}
                             </div>
                             {status === 'pending' && (
@@ -562,13 +565,13 @@ const AdminDashboard = () => {
 
       {/* Delete Agent Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-slate-900 border-white/10 text-white">
+        <AlertDialogContent className="bg-background border-border text-foreground">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-400" />
               Delete Agent
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-white/70">
+            <AlertDialogDescription className="text-muted-foreground">
               Are you sure you want to delete {agentToDelete?.profile.fullName || agentToDelete?.email}? 
               This will permanently delete:
               <ul className="list-disc list-inside mt-2 space-y-1">
@@ -580,7 +583,7 @@ const AdminDashboard = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-white/30 text-white hover:bg-white/10">
+            <AlertDialogCancel>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction

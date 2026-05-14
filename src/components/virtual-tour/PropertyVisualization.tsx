@@ -30,7 +30,9 @@ const PropertyVisualization = ({ property }: PropertyVisualizationProps) => {
   ];
 
   // Set default tab based on property type
-  const defaultTab = isLandProperty ? 'map' : '3d';
+  const defaultTab = isLandProperty
+    ? 'map'
+    : (has3DTour ? '3d' : (hasFloorPlan ? 'floorplan' : (hasVideoTour ? 'video' : '3d')));
 
   return (
     <div className="space-y-4">
@@ -72,13 +74,15 @@ const PropertyVisualization = ({ property }: PropertyVisualizationProps) => {
               Aerial View
             </TabsTrigger>
           )}
-          <TabsTrigger 
-            value="video"
-            className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            <Play className="h-4 w-4" />
-            Video Tour
-          </TabsTrigger>
+          {hasVideoTour && (
+            <TabsTrigger 
+              value="video"
+              className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <Play className="h-4 w-4" />
+              Video Tour
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Land Plot Map Tab */}
@@ -162,36 +166,38 @@ const PropertyVisualization = ({ property }: PropertyVisualizationProps) => {
           </TabsContent>
         )}
 
-        <TabsContent value="video" className="mt-4">
-          <div className="relative aspect-video rounded-xl overflow-hidden bg-muted">
-            <img
-              src={property.images[0]}
-              alt={property.title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-              <Button
-                variant="hero"
-                size="lg"
-                className="rounded-full w-16 h-16 p-0"
-                onClick={() => setIsVideoPlaying(!isVideoPlaying)}
-              >
-                {isVideoPlaying ? (
-                  <Pause className="h-6 w-6" />
-                ) : (
-                  <Play className="h-6 w-6 ml-1" />
-                )}
-              </Button>
+        {hasVideoTour && (
+          <TabsContent value="video" className="mt-4">
+            <div className="relative aspect-video rounded-xl overflow-hidden bg-muted">
+              <img
+                src={property.images[0]}
+                alt={property.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <Button
+                  variant="hero"
+                  size="lg"
+                  className="rounded-full w-16 h-16 p-0"
+                  onClick={() => setIsVideoPlaying(!isVideoPlaying)}
+                >
+                  {isVideoPlaying ? (
+                    <Pause className="h-6 w-6" />
+                  ) : (
+                    <Play className="h-6 w-6 ml-1" />
+                  )}
+                </Button>
+              </div>
+              <div className="absolute bottom-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2">
+                <div className="text-sm font-semibold text-foreground">Video Walkthrough</div>
+                <div className="text-xs text-muted-foreground">Duration: 3:45</div>
+              </div>
             </div>
-            <div className="absolute bottom-4 left-4 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2">
-              <div className="text-sm font-semibold text-foreground">Video Walkthrough</div>
-              <div className="text-xs text-muted-foreground">Duration: 3:45</div>
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground mt-3 text-center">
-            Full video tour available • Contact agent for viewing appointment
-          </p>
-        </TabsContent>
+            <p className="text-sm text-muted-foreground mt-3 text-center">
+              Full video tour available • Contact agent for viewing appointment
+            </p>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

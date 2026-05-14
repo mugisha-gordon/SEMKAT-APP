@@ -24,6 +24,7 @@ import type {
 } from './types';
 import { deletePropertiesByAgent } from './properties';
 import { deleteVideosByUser } from './videos';
+import { deleteAgentApplicationsByUser } from './agentApplications';
 
 const COLLECTION_NAME = 'users';
 
@@ -78,6 +79,8 @@ export async function createUserDocument(
       fullName: fullName || null,
       phone: null,
       avatarUrl: null,
+      pushToken: null,
+      pushPlatform: null,
       createdAt: now,
       updatedAt: now,
     },
@@ -214,18 +217,25 @@ export function subscribeToAgents(callback: (agents: UserDocument[]) => void, li
  */
 export async function getApprovedAgents(limitCount?: number): Promise<UserDocument[]> {
   const usersRef = collection(db, COLLECTION_NAME);
-  let q = query(usersRef, where('role', '==', 'agent'));
-  if (limitCount) {
-    q = query(q, limit(limitCount));
+  const qByRoles = limitCount
+    ? query(usersRef, where('roles.agent', '==', true), limit(limitCount))
+    : query(usersRef, where('roles.agent', '==', true));
+
+  const qByRole = limitCount
+    ? query(usersRef, where('role', '==', 'agent'), limit(limitCount))
+    : query(usersRef, where('role', '==', 'agent'));
+
+  const [snapByRoles, snapByRole] = await Promise.all([getDocs(qByRoles), getDocs(qByRole)]);
+
+  const merged = new Map<string, UserDocument>();
+  for (const docSnap of [...snapByRoles.docs, ...snapByRole.docs]) {
+    merged.set(docSnap.id, {
+      userId: docSnap.id,
+      ...(docSnap.data() as any),
+    } as UserDocument);
   }
-  const snapshot = await getDocs(q);
 
-  const users = snapshot.docs.map((doc) => ({
-    userId: doc.id,
-    ...doc.data(),
-  })) as UserDocument[];
-
-  return users.filter((u) => !!u.roles?.agent);
+  return Array.from(merged.values());
 }
 
 export async function getUserIdByEmail(email: string): Promise<string | null> {
@@ -257,6 +267,28 @@ export async function deleteUserAndData(userId: string): Promise<void> {
 
   // Delete all videos
   await deleteVideosByUser(userId);
+
+  // Delete agent applications (if any)
+  try {
+    await deleteAgentApplicationsByUser(userId);
+  } catch {
+    // Best-effort cleanup
+  }
+
+  // Delete notifications targeted to this user (best-effort)
+  try {
+    const notifsRef = collection(db, 'notifications');
+    const batchSize = 200;
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const snap = await getDocs(query(notifsRef, where('userId', '==', userId), limit(batchSize)));
+      if (snap.empty) break;
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+    }
+  } catch {
+    // Best-effort cleanup
+  }
 
   // Delete user document
   const userRef = doc(db, COLLECTION_NAME, userId);

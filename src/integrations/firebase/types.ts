@@ -25,6 +25,8 @@ export interface UserDocument {
     fullName: string | null;
     phone: string | null;
     avatarUrl: string | null;
+    pushToken?: string | null;
+    pushPlatform?: string | null;
     createdAt: Timestamp;
     updatedAt: Timestamp;
   };
@@ -65,7 +67,7 @@ export type UpdateUserDocument = Partial<Omit<UserDocument, 'userId' | 'createdA
 // Helper type for creating agent applications
 export type CreateAgentApplicationDocument = Omit<
   AgentApplicationDocument,
-  'id' | 'status' | 'reviewedBy' | 'reviewedAt' | 'notes' | 'createdAt'
+  'id' | 'userId' | 'status' | 'reviewedBy' | 'reviewedAt' | 'notes' | 'createdAt'
 >;
 
 // Helper type for updating agent applications

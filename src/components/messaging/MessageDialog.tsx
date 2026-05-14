@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState, useEffect, useRef, type FormEvent } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, MessageCircle, User } from "lucide-react";
@@ -26,41 +26,54 @@ const MessageDialog = ({ open, onOpenChange, otherUserId, otherUserName }: Messa
   const [otherUser, setOtherUser] = useState<{ name: string; avatar?: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const otherUserNameRef = useRef<string | undefined>(otherUserName);
+
+  useEffect(() => {
+    otherUserNameRef.current = otherUserName;
+  }, [otherUserName]);
 
   useEffect(() => {
     if (!open || !user || !otherUserId) return;
 
-    // Fetch other user's info
+    // Fetch other user's info (works for any user—agent or regular)
     const fetchOtherUser = async () => {
       try {
         const userDoc = await getUserDocument(otherUserId);
         if (userDoc) {
+          const profile = userDoc.profile;
           setOtherUser({
-            name: userDoc.profile.fullName || otherUserName || "User",
-            avatar: userDoc.profile.avatarUrl || undefined,
+            name: profile?.fullName || otherUserNameRef.current || "User",
+            avatar: profile?.avatarUrl ?? undefined,
           });
         } else {
-          setOtherUser({ name: otherUserName || "User" });
+          setOtherUser({ name: otherUserNameRef.current || "User" });
         }
       } catch (error) {
         console.error("Error fetching user:", error);
-        setOtherUser({ name: otherUserName || "User" });
+        setOtherUser({ name: otherUserNameRef.current || "User" });
       }
     };
 
     fetchOtherUser();
 
     // Subscribe to messages
-    const unsubscribe = subscribeToMessages(user.uid, otherUserId, (newMessages) => {
-      setMessages(newMessages);
-      // Mark messages as read
-      markMessagesAsRead(user.uid, otherUserId, user.uid).catch(console.error);
-    });
+    const unsubscribe = subscribeToMessages(
+      user.uid,
+      otherUserId,
+      (newMessages) => {
+        setMessages(newMessages);
+        // Mark messages as read
+        markMessagesAsRead(user.uid, otherUserId, user.uid).catch(console.error);
+      },
+      (error) => {
+        console.error("Messages subscription error:", error);
+      }
+    );
 
     return () => {
       unsubscribe();
     };
-  }, [open, user, otherUserId, otherUserName]);
+  }, [open, user?.uid, otherUserId]);
 
   useEffect(() => {
     // Scroll to bottom when new messages arrive
@@ -69,7 +82,7 @@ const MessageDialog = ({ open, onOpenChange, otherUserId, otherUserName }: Messa
     }
   }, [messages]);
 
-  const handleSend = async (e: React.FormEvent) => {
+  const handleSend = async (e: FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !user) return;
 
@@ -94,7 +107,7 @@ const MessageDialog = ({ open, onOpenChange, otherUserId, otherUserName }: Messa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-slate-900 border-white/10 text-white flex flex-col h-[80vh] sm:h-[600px] w-[calc(100vw-2rem)] max-w-md min-h-0">
+      <DialogContent className="bg-slate-900 border-white/10 text-white flex flex-col h-[80vh] sm:h-[600px] max-w-md min-h-0">
         <DialogHeader className="border-b border-white/10 pb-3">
           <DialogTitle className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-semkat-orange" />
@@ -108,6 +121,9 @@ const MessageDialog = ({ open, onOpenChange, otherUserId, otherUserName }: Messa
               <span className="truncate">{otherUser?.name || otherUserName || "Message"}</span>
             </Link>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Direct message conversation.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Messages container */}
@@ -151,24 +167,25 @@ const MessageDialog = ({ open, onOpenChange, otherUserId, otherUserName }: Messa
         </div>
 
         {/* Input form */}
-        <form onSubmit={handleSend} className="border-t border-white/10 pt-3">
-          <div className="flex gap-2">
-            <Input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message..."
-              className="bg-white/5 border-white/20 text-white placeholder:text-white/50"
-              disabled={loading}
-            />
-            <Button
-              type="submit"
-              variant="hero"
-              size="icon"
-              disabled={loading || !message.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
+        <form onSubmit={handleSend} className="flex gap-2 border-t border-white/10 pt-3">
+          <Input
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type a message..."
+            id="message"
+            name="message"
+            autoComplete="off"
+            className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
+            disabled={loading}
+          />
+          <Button
+            type="submit"
+            variant="hero"
+            size="icon"
+            disabled={loading || !message.trim()}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

@@ -16,7 +16,7 @@ import {
   type DocumentData,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { db } from './client';
+import { db, ensureAuthReady } from './client';
 import type { PropertyType, PropertyStatus } from '@/types/property';
 
  function stripUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -30,6 +30,7 @@ import type { PropertyType, PropertyStatus } from '@/types/property';
 export interface PropertyDocument {
   id: string;
   agentId: string; // Firebase Auth UID of the agent (or admin)
+  postedByRole?: 'agent' | 'admin';
   title: string;
   type: PropertyType;
   status: PropertyStatus;
@@ -48,6 +49,7 @@ export interface PropertyDocument {
   images: string[];
   illustration2D?: string; // URL for 2D floor plan/diagram
   illustration3D?: string; // URL for 3D virtual tour/panorama
+  kmlUrl?: string; // URL for estate tour boundaries/paths
   description: string;
   features: string[];
   hasTitle: boolean;
@@ -67,6 +69,7 @@ export interface PropertyDocument {
 
 export interface CreatePropertyDocument {
   agentId: string;
+  postedByRole?: 'agent' | 'admin';
   title: string;
   type: PropertyType;
   status: PropertyStatus;
@@ -85,6 +88,7 @@ export interface CreatePropertyDocument {
   images: string[];
   illustration2D?: string; // URL for 2D floor plan/diagram
   illustration3D?: string; // URL for 3D virtual tour/panorama
+  kmlUrl?: string; // URL for estate tour boundaries/paths
   description: string;
   features: string[];
   hasTitle: boolean;
@@ -242,6 +246,8 @@ export async function getProperty(propertyId: string): Promise<PropertyDocument 
  * Create a new property (agent only)
  */
 export async function createProperty(data: CreatePropertyDocument): Promise<string> {
+  await ensureAuthReady();
+
   const propertiesRef = collection(db, COLLECTION_NAME);
   // Remove undefined optional fields to avoid Firestore errors
   const sanitized: any = {
@@ -255,6 +261,9 @@ export async function createProperty(data: CreatePropertyDocument): Promise<stri
   }
   if (sanitized.illustration3D === undefined) {
     delete sanitized.illustration3D;
+  }
+  if (sanitized.kmlUrl === undefined) {
+    delete sanitized.kmlUrl;
   }
   if (sanitized.installmentPayment === undefined) {
     delete sanitized.installmentPayment;
@@ -318,7 +327,17 @@ export async function deleteProperty(propertyId: string): Promise<void> {
  * Delete all properties by an agent (admin only)
  */
 export async function deletePropertiesByAgent(agentId: string): Promise<void> {
-  const properties = await getProperties({ agentId });
-  const deletePromises = properties.map((property) => deleteProperty(property.id));
-  await Promise.all(deletePromises);
+  // Use a simple where(...) query without orderBy to avoid composite index requirements.
+  // Delete in batches until none remain.
+  const propertiesRef = collection(db, COLLECTION_NAME);
+  const batchSize = 200;
+
+  // Keep looping until the query returns no documents.
+  // This avoids needing pagination cursors and orderBy.
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const snap = await getDocs(query(propertiesRef, where('agentId', '==', agentId), limit(batchSize)));
+    if (snap.empty) break;
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  }
 }

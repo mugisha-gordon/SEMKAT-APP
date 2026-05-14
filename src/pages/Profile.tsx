@@ -32,7 +32,7 @@ const Profile = () => {
   const [applying, setApplying] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
   const [companyInput, setCompanyInput] = useState<string>("");
-  const [phoneInput, setPhoneInput] = useState<string>(user?.phone || "");
+  const [phoneInput, setPhoneInput] = useState<string>(user?.phoneNumber || "");
   const [licenseInput, setLicenseInput] = useState<string>("");
   const [experienceInput, setExperienceInput] = useState<number | null>(null);
   const [notesInput, setNotesInput] = useState<string>("");
@@ -107,7 +107,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
       <main className="flex-1 pb-12">
@@ -115,11 +115,11 @@ const Profile = () => {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(249,115,22,0.2),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(14,165,233,0.2),transparent_35%)]" />
           <div className="container relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <Badge variant="outline" className="border-white/30 text-white mb-3">Profile</Badge>
+              <Badge variant="outline" className="border-border text-foreground mb-3">Profile</Badge>
               <h1 className="font-heading text-2xl sm:text-3xl font-bold">User Profile</h1>
-              <p className="text-white/60 text-sm mt-1">View details and manage your avatar.</p>
+              <p className="text-muted-foreground text-sm mt-1">View details and manage your avatar.</p>
             </div>
-            <Button variant="outline" asChild className="border-white/30 text-white hover:bg-white/10">
+            <Button variant="outline" asChild>
               <Link to={user ? (user.uid === userId ? "/dashboard" : "/explore") : "/"} className="flex items-center gap-2">
                 <ChevronLeft className="h-4 w-4" />
                 Back
@@ -129,7 +129,7 @@ const Profile = () => {
         </section>
 
         <section className="container max-w-3xl">
-          <Card className="bg-white/5 border-white/10 text-white p-6">
+          <Card className="bg-card border-border text-card-foreground p-6">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
               <div className="flex items-center gap-4 min-w-0">
                 <button
@@ -140,21 +140,21 @@ const Profile = () => {
                   }}
                   aria-label="View profile photo"
                 >
-                  <Avatar className="h-16 w-16 border border-white/15">
+                  <Avatar className="h-16 w-16 border border-border">
                     <AvatarImage src={avatarUrl || undefined} />
-                    <AvatarFallback className="bg-white/10 text-white/80 text-xl">{initials}</AvatarFallback>
+                    <AvatarFallback className="bg-muted text-foreground/80 text-xl">{initials}</AvatarFallback>
                   </Avatar>
                 </button>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-heading text-xl font-semibold truncate">{fullName || "User"}</h2>
                     {role && (
-                      <Badge variant="outline" className="border-white/20 text-white/90">
+                      <Badge variant="outline" className="border-border text-foreground">
                         {role}
                       </Badge>
                     )}
                   </div>
-                  <p className="text-white/60 text-sm truncate">{email || ""}</p>
+                  <p className="text-muted-foreground text-sm truncate">{email || ""}</p>
                 </div>
               </div>
 
@@ -176,7 +176,6 @@ const Profile = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      className="border-white/30 text-white hover:bg-white/10"
                       disabled={!user || uploading || loading}
                       onClick={() => {
                         if (!user || uploading || loading) return;
@@ -191,13 +190,13 @@ const Profile = () => {
               )}
               {!isOwnProfile && user && (
                 <div className="shrink-0">
-                  <MessageAgentButton agentId={userId!} agentName={fullName || undefined} variant="outline" />
+                  <MessageAgentButton agentId={userId!} agentName={fullName || undefined} label="Message" variant="outline" />
                 </div>
               )}
             </div>
 
             {!user && (
-              <div className="mt-4 text-sm text-white/70">
+              <div className="mt-4 text-sm text-muted-foreground">
                 Please <Link className="underline" to="/auth">log in</Link> to view profiles.
               </div>
             )}
@@ -205,17 +204,17 @@ const Profile = () => {
             {isOwnProfile && user && role === 'user' && (
               <div className="mt-4">
                 {applicationStatus === 'pending' ? (
-                  <div className="text-sm text-white/70">Your application to become an agent is pending review.</div>
+                  <div className="text-sm text-muted-foreground">Your application to become an agent is pending review.</div>
                 ) : applicationStatus === 'approved' ? (
-                  <div className="text-sm text-white/70">Your application was approved. You're now an agent.</div>
+                  <div className="text-sm text-muted-foreground">Your application was approved. You're now an agent.</div>
                 ) : applicationStatus === 'rejected' ? (
-                  <div className="text-sm text-white/70">Your application was rejected. You may apply again.</div>
+                  <div className="text-sm text-muted-foreground">Your application was rejected. You may apply again.</div>
                 ) : (
                   <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
                     <DialogTrigger asChild>
                       <Button variant="hero" className="mt-2">Apply to become an agent</Button>
                     </DialogTrigger>
-                    <DialogContent className="bg-slate-900 border-white/10 text-white max-h-[90vh] overflow-y-auto">
+                    <DialogContent className="bg-background border-border text-foreground max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle className="font-heading text-lg sm:text-xl">Agent Application</DialogTitle>
                       </DialogHeader>
@@ -227,7 +226,7 @@ const Profile = () => {
                           try {
                             await applyForAgent(user.uid, {
                               fullName: fullName || user.email?.split('@')[0] || '',
-                              phone: phoneInput || user.phone || '',
+                              phone: phoneInput || user.phoneNumber || '',
                               email: email || user.email || '',
                               company: companyInput || null,
                               licenseNumber: licenseInput || null,
@@ -247,27 +246,27 @@ const Profile = () => {
                       >
                         <div className="space-y-2">
                           <Label>Full name</Label>
-                          <Input value={fullName || ''} onChange={(e) => setFullName(e.target.value)} required className="bg-white/5 border-white/20 text-sm" />
+                          <Input value={fullName || ''} onChange={(e) => setFullName(e.target.value)} required className="bg-muted border-border text-sm" />
                         </div>
                         <div className="space-y-2">
                           <Label>Phone</Label>
-                          <Input value={phoneInput} onChange={(e) => setPhoneInput(e.target.value)} required className="bg-white/5 border-white/20 text-sm" />
+                          <Input value={phoneInput} onChange={(e) => setPhoneInput(e.target.value)} required className="bg-muted border-border text-sm" />
                         </div>
                         <div className="space-y-2">
                           <Label>Company (optional)</Label>
-                          <Input value={companyInput} onChange={(e) => setCompanyInput(e.target.value)} className="bg-white/5 border-white/20 text-sm" />
+                          <Input value={companyInput} onChange={(e) => setCompanyInput(e.target.value)} className="bg-muted border-border text-sm" />
                         </div>
                         <div className="space-y-2">
                           <Label>License / Registration # (optional)</Label>
-                          <Input value={licenseInput} onChange={(e) => setLicenseInput(e.target.value)} className="bg-white/5 border-white/20 text-sm" />
+                          <Input value={licenseInput} onChange={(e) => setLicenseInput(e.target.value)} className="bg-muted border-border text-sm" />
                         </div>
                         <div className="space-y-2">
                           <Label>Years of experience (optional)</Label>
-                          <Input type="number" value={experienceInput ?? ''} onChange={(e) => setExperienceInput(e.target.value ? parseInt(e.target.value, 10) : null)} className="bg-white/5 border-white/20 text-sm" />
+                          <Input type="number" value={experienceInput ?? ''} onChange={(e) => setExperienceInput(e.target.value ? parseInt(e.target.value, 10) : null)} className="bg-muted border-border text-sm" />
                         </div>
                         <div className="space-y-2">
                           <Label>Additional notes (optional)</Label>
-                          <Textarea value={notesInput} onChange={(e) => setNotesInput(e.target.value)} className="bg-white/5 border-white/20 text-sm" />
+                          <Textarea value={notesInput} onChange={(e) => setNotesInput(e.target.value)} className="bg-muted border-border text-sm" />
                         </div>
                         <Button type="submit" variant="hero" className="w-full" disabled={applying}>
                           {applying ? 'Submitting...' : 'Submit application'}

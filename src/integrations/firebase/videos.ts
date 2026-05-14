@@ -16,7 +16,7 @@ import {
   Timestamp,
   runTransaction,
 } from 'firebase/firestore';
-import { db } from './client';
+import { db, ensureAuthReady } from './client';
 
  function stripUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
    const out: Record<string, any> = {};
@@ -128,6 +128,8 @@ export async function addVideoComment(videoId: string, userId: string, content: 
       updatedAt: Timestamp.now(),
       audience: 'user',
       userId: videoOwnerId,
+      actorId: userId,
+      targetPath: `/explore?video=${encodeURIComponent(videoId)}&focus=comments&comment=${encodeURIComponent(docRef.id)}`,
     });
   }
 
@@ -175,6 +177,8 @@ export async function getVideo(videoId: string): Promise<VideoDocument | null> {
  * Create a new video (agent or user)
  */
 export async function createVideo(data: CreateVideoDocument): Promise<string> {
+  await ensureAuthReady();
+
   // Validate required fields
   if (!data.userId || !data.title || !data.location || !data.videoUrl) {
     throw new Error('Missing required fields: userId, title, location, and videoUrl are required');
@@ -291,6 +295,8 @@ export async function toggleVideoLike(
         updatedAt: Timestamp.now(),
         audience: 'user',
         userId: video.userId,
+        actorId: userId,
+        targetPath: `/explore?video=${encodeURIComponent(videoId)}`,
       } as any);
     }
     return { liked: true, likes: nextLikes };
@@ -301,7 +307,15 @@ export async function toggleVideoLike(
  * Delete all videos by a user (admin only)
  */
 export async function deleteVideosByUser(userId: string): Promise<void> {
-  const videos = await getVideos({ userId });
-  const deletePromises = videos.map((video) => deleteVideo(video.id));
-  await Promise.all(deletePromises);
+  // Use a simple where(...) query without orderBy to avoid composite index requirements.
+  // Delete in batches until none remain.
+  const videosRef = collection(db, COLLECTION_NAME);
+  const batchSize = 200;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const snap = await getDocs(query(videosRef, where('userId', '==', userId), limit(batchSize)));
+    if (snap.empty) break;
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  }
 }

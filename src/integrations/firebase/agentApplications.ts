@@ -8,6 +8,7 @@ import {
   limit as limitFn,
   doc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   Timestamp,
   orderBy,
@@ -44,6 +45,7 @@ export async function applyForAgent(userId: string, data: CreateAgentApplication
         type: 'info',
         title: 'New agent application',
         description: `${data.fullName} submitted an agent application.`,
+        targetPath: '/admin',
       });
     }
   } catch {
@@ -112,5 +114,17 @@ export function subscribeToAgentApplications(callback: (apps: AgentApplicationDo
     callback(apps);
   });
   return unsub;
+}
+
+export async function deleteAgentApplicationsByUser(userId: string): Promise<void> {
+  const ref = collection(db, COLLECTION_NAME);
+  const batchSize = 200;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const snap = await getDocs(query(ref, where('userId', '==', userId), limitFn(batchSize)));
+    if (snap.empty) break;
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  }
 }
 

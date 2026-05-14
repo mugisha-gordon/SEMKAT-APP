@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type WheelEvent, type TouchEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
-import Header from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Heart, MessageCircle, Share2, Sparkles, Volume2, VolumeX, ChevronUp, ChevronDown, Trash2, MessageSquareText, Send, Plus, Play, Pause } from "lucide-react";
@@ -16,14 +15,26 @@ import VideoPostForm from "@/components/video/VideoPostForm";
 import MessageDialog from "@/components/messaging/MessageDialog";
 import { deleteFile } from "@/integrations/firebase/storage";
 import { subscribeToVideosFeed } from "@/integrations/firebase/videosFeed";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Explore = () => {
+  const EXPLORE_PLAYBACK_KEY = "semkat_explore_playback_v1";
   const { user, role } = useAuth();
   const shuffleSeedRef = useRef<number>(Date.now());
   const [clips, setClips] = useState<VideoDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [authorNames, setAuthorNames] = useState<{ [userId: string]: string }>({});
   const [authorAvatars, setAuthorAvatars] = useState<{ [userId: string]: string | undefined }>({});
+  const authorFetchInFlightRef = useRef<Set<string>>(new Set());
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentIndexRef = useRef(0);
   const userToggledMuteRef = useRef(false);
@@ -32,28 +43,73 @@ const Explore = () => {
     const raw = localStorage.getItem('semkat_explore_muted');
     if (raw === 'true') return true;
     if (raw === 'false') return false;
-    // Default to sound ON; browsers may force muted autoplay and we'll fall back.
+    // Default preference: sound ON.
     return false;
   });
   const [paused, setPaused] = useState(false);
   const userPausedRef = useRef(false);
   const [readyByClipId, setReadyByClipId] = useState<Record<string, boolean>>({});
   const [errorByClipId, setErrorByClipId] = useState<Record<string, boolean>>({});
-  const [showHeader, setShowHeader] = useState(true);
   const [messageOpen, setMessageOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState<VideoCommentDocument[]>([]);
+  const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
+  const [showJumpBanner, setShowJumpBanner] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentSending, setCommentSending] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<VideoDocument | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const restorePlaybackRef = useRef<{ id: string; time: number } | null>(null);
+  const hasAppliedRestoreRef = useRef(false);
   const lastNavAtRef = useRef<number>(0);
   const navLockRef = useRef(false);
+  const hasUserInteractedRef = useRef(false);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const currentClip = clips[currentIndex];
+
+  // Header is intentionally removed on Explore for an immersive full-screen feed.
+
+  const readSavedPlayback = () => {
+    try {
+      const raw = sessionStorage.getItem(EXPLORE_PLAYBACK_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      if (typeof parsed.id !== "string") return null;
+      const time = Number(parsed.time || 0);
+      return { id: parsed.id, time: Number.isFinite(time) ? Math.max(0, time) : 0 };
+    } catch {
+      return null;
+    }
+  };
+
+  const savePlayback = (id: string, time: number) => {
+    try {
+      sessionStorage.setItem(
+        EXPLORE_PLAYBACK_KEY,
+        JSON.stringify({
+          id,
+          time: Number.isFinite(time) ? Math.max(0, time) : 0,
+          savedAt: Date.now(),
+        })
+      );
+    } catch {
+      // ignore storage failures
+    }
+  };
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (!currentClip?.id) return;
+    const video = videoRefs.current[currentIndex];
+    savePlayback(currentClip.id, video?.currentTime || 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, currentClip?.id]);
 
   const attemptPlayByIndex = async (index: number, tryCount: number = 0) => {
     const video = videoRefs.current[index];
@@ -151,6 +207,25 @@ const Explore = () => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (hasAppliedRestoreRef.current) return;
+    if (!clips.length) return;
+
+    const saved = readSavedPlayback();
+    if (!saved) {
+      hasAppliedRestoreRef.current = true;
+      return;
+    }
+
+    const idx = clips.findIndex((v) => v.id === saved.id);
+    if (idx >= 0) {
+      restorePlaybackRef.current = saved;
+      setCurrentIndex(idx);
+    }
+    hasAppliedRestoreRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clips]);
+
   // Keep author metadata in sync as the feed updates
   useEffect(() => {
     const userIds = [...new Set(clips.map((v) => v.userId))];
@@ -176,8 +251,15 @@ const Explore = () => {
       });
     }
 
-    const missingIds = userIds.filter((id) => !authorNames[id] || authorNames[id] === 'Unknown');
+    const missingIds = userIds.filter((id) => {
+      const hasName = authorNames[id] && authorNames[id] !== "Unknown";
+      if (hasName) return false;
+      if (authorFetchInFlightRef.current.has(id)) return false;
+      return true;
+    });
     if (missingIds.length === 0) return;
+
+    missingIds.forEach((id) => authorFetchInFlightRef.current.add(id));
 
     Promise.all(
       missingIds.map(async (userId) => {
@@ -201,6 +283,9 @@ const Explore = () => {
       })
     )
       .then((results) => {
+        results.forEach((r: any) => {
+          if (r?.userId) authorFetchInFlightRef.current.delete(r.userId);
+        });
         setAuthorNames((prev) => {
           const next = { ...prev };
           results.filter(Boolean).forEach((r: any) => {
@@ -231,8 +316,34 @@ const Explore = () => {
         });
         if (changed) writeAuthorCache(cache);
       })
-      .catch(() => {});
-  }, [clips, authorNames, user]);
+      .catch(() => {
+        missingIds.forEach((id) => authorFetchInFlightRef.current.delete(id));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clips]);
+
+  const setStatusBarVisible = (next: boolean) => {
+    window.dispatchEvent(new CustomEvent("semkat:exploreStatusBar", { detail: { visible: next } }));
+  };
+
+  const markUserInteraction = () => {
+    if (hasUserInteractedRef.current) return;
+    hasUserInteractedRef.current = true;
+    setHasUserInteracted(true);
+
+    // If user didn't explicitly choose muted, enable sound after first gesture.
+    if (!userToggledMuteRef.current) {
+      autoplayForcedMutedRef.current = false;
+      setMuted(false);
+      try {
+        localStorage.setItem('semkat_explore_muted', 'false');
+      } catch {
+        // ignore storage issues
+      }
+      // Re-attempt playback now that gesture has occurred.
+      void attemptPlayByIndex(currentIndexRef.current, 0);
+    }
+  };
 
   // If we navigated here right after an upload, jump to the newest clip
   useEffect(() => {
@@ -244,6 +355,44 @@ const Explore = () => {
     }
   }, [location.state, clips]);
 
+  // Deep-link support from notifications/share links.
+  // Examples: /explore?video=<id>, /explore?video=<id>&focus=comments
+  useEffect(() => {
+    if (!clips.length) return;
+    const params = new URLSearchParams(location.search);
+    const targetVideoId = params.get("video");
+    const focus = params.get("focus");
+    const commentId = params.get("comment");
+    if (!targetVideoId) return;
+
+    const idx = clips.findIndex((c) => c.id === targetVideoId);
+    if (idx < 0) return;
+
+    userPausedRef.current = false;
+    setPaused(false);
+    setCurrentIndex(idx);
+    setFocusCommentId(commentId || null);
+    setShowJumpBanner(true);
+    if (focus === "comments") {
+      setTimeout(() => {
+        setCommentsOpen(true);
+      }, 250);
+    }
+  }, [clips, location.search]);
+
+  useEffect(() => {
+    if (!showJumpBanner) return;
+    const timer = setTimeout(() => setShowJumpBanner(false), 2800);
+    return () => clearTimeout(timer);
+  }, [showJumpBanner]);
+
+  useEffect(() => {
+    if (!commentsOpen || !focusCommentId) return;
+    const el = document.getElementById(`comment-${focusCommentId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [commentsOpen, comments, focusCommentId]);
+
   const refreshVideos = async () => {
     // kept for backwards compatibility with the upload button (realtime already updates)
     setCurrentIndex(0);
@@ -251,19 +400,26 @@ const Explore = () => {
 
   const goToSlide = (index: number) => {
     if (index >= 0 && index < clips.length) {
-      setShowHeader(index <= currentIndexRef.current);
       setCurrentIndex(index);
     }
   };
 
   const goToNext = () => {
-    setShowHeader(false);
     setCurrentIndex((prev) => Math.min(clips.length - 1, prev + 1));
+    setStatusBarVisible(false);
+    userToggledMuteRef.current = false;
+    autoplayForcedMutedRef.current = false;
+    setMuted(false);
+    try {
+      localStorage.setItem('semkat_explore_muted', 'false');
+    } catch {
+      // ignore
+    }
   };
 
   const goToPrev = () => {
-    setShowHeader(true);
     setCurrentIndex((prev) => Math.max(0, prev - 1));
+    setStatusBarVisible(true);
   };
 
   const lockNav = () => {
@@ -273,8 +429,13 @@ const Explore = () => {
     }, 450);
   };
 
-  const handleScroll = (e: React.WheelEvent) => {
-    e.preventDefault();
+  const handleScroll = (e: WheelEvent) => {
+    markUserInteraction();
+    // React may attach wheel listeners as passive in some environments.
+    // Guard preventDefault to avoid console noise when event is non-cancelable.
+    if (e.cancelable) {
+      e.preventDefault();
+    }
 
     // Desktop interaction: if autoplay forced us to mute, unmute on first user intent
     // unless they explicitly chose muted.
@@ -299,7 +460,8 @@ const Explore = () => {
 
   // Touch handling for mobile
   const touchStartY = useRef(0);
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: TouchEvent) => {
+    markUserInteraction();
     touchStartY.current = e.touches[0].clientY;
 
     // If autoplay forced us to mute, and the user hasn't explicitly muted,
@@ -310,7 +472,8 @@ const Explore = () => {
     }
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (e: TouchEvent) => {
+    markUserInteraction();
     const deltaY = touchStartY.current - e.changedTouches[0].clientY;
     const now = Date.now();
     if (navLockRef.current) return;
@@ -327,6 +490,20 @@ const Explore = () => {
       }
     }
   };
+
+  useEffect(() => {
+    // Ensure we leave Explore with the status bar visible.
+    setStatusBarVisible(true);
+    return () => {
+      const clip = clips[currentIndexRef.current];
+      const video = videoRefs.current[currentIndexRef.current];
+      if (clip?.id) {
+        savePlayback(clip.id, video?.currentTime || 0);
+      }
+      setStatusBarVisible(true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clips]);
 
   // Play/pause videos based on current index
   useEffect(() => {
@@ -438,6 +615,14 @@ const Explore = () => {
       toast.error('You can only delete your own videos');
       return;
     }
+    setDeleteTarget(clip);
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    const clip = deleteTarget;
+    if (!clip) return;
+    if (!user) return;
 
     try {
       toast.loading('Deleting video...', { id: `delete-video-${clip.id}` });
@@ -455,6 +640,9 @@ const Explore = () => {
     } catch (error: any) {
       console.error('Error deleting video:', error);
       toast.error(error.message || 'Failed to delete video', { id: `delete-video-${clip.id}` });
+    } finally {
+      setDeleteOpen(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -542,7 +730,6 @@ const Explore = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-950 text-white">
-        <Header />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-semkat-orange border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -556,7 +743,6 @@ const Explore = () => {
   if (clips.length === 0) {
     return (
       <div className="min-h-screen flex flex-col bg-slate-950 text-white">
-        <Header />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -599,17 +785,33 @@ const Explore = () => {
   }
 
   const isLiked = user && currentClip?.likedBy?.includes(user.uid);
-  const headerVisible = currentIndex === 0 || showHeader;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <div
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          headerVisible ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
-        }`}
-      >
-        <Header />
-      </div>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="bg-slate-950 border-white/10 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this video?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/70">
+              This action cannot be undone. The video will be removed from Explore and deleted from storage.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+              onClick={() => {
+                setDeleteOpen(false);
+                setDeleteTarget(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={confirmDelete}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <main
         className="relative overflow-hidden min-h-0"
@@ -617,7 +819,10 @@ const Explore = () => {
       >
         {/* Upload button - Plus button for logged in users */}
         {user && (
-          <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
+          <div
+            className="absolute left-4 z-50 flex items-center gap-2"
+            style={{ top: "1rem" }}
+          >
             <VideoPostForm
               onSuccess={() => {
                 // Refresh and scroll to top to show new video
@@ -629,7 +834,7 @@ const Explore = () => {
               triggerVariant="hero"
               triggerSize="icon"
               triggerClassName="h-11 w-11 sm:h-12 sm:w-12 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center"
-              triggerLabel=""
+              triggerLabel="+"
             />
           </div>
         )}
@@ -645,9 +850,12 @@ const Explore = () => {
 
         {currentClip && (
           <Dialog open={commentsOpen} onOpenChange={setCommentsOpen}>
-            <DialogContent className="bg-slate-900 border-white/10 text-white max-w-md">
+            <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="font-heading">Comments</DialogTitle>
+                <DialogDescription className="sr-only">
+                  Video comments.
+                </DialogDescription>
               </DialogHeader>
 
               <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1">
@@ -655,7 +863,13 @@ const Explore = () => {
                   <p className="text-white/50 text-sm">No comments yet. Be the first to comment.</p>
                 ) : (
                   comments.map((c) => (
-                    <div key={c.id} className="flex gap-3">
+                    <div
+                      key={c.id}
+                      id={`comment-${c.id}`}
+                      className={`flex gap-3 rounded-md p-1 ${
+                        focusCommentId === c.id ? "bg-semkat-orange/10 ring-1 ring-semkat-orange/40" : ""
+                      }`}
+                    >
                       <Link to={`/profile/${c.userId}`} className="shrink-0">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={authorAvatars[c.userId]} />
@@ -705,14 +919,22 @@ const Explore = () => {
         <div
           ref={containerRef}
           className="relative overflow-hidden h-full"
-          style={{ height: headerVisible ? "calc(100dvh - 4rem)" : "100dvh", marginTop: headerVisible ? "4rem" : "0" }}
+          style={{ height: "100dvh" }}
           onWheel={handleScroll}
+          onMouseDown={markUserInteraction}
+          onPointerDown={markUserInteraction}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
+          onClick={() => {
+            markUserInteraction();
+            // Tap to reveal controls briefly (including StatusBar)
+            setStatusBarVisible(true);
+            setTimeout(() => setStatusBarVisible(false), 1800);
+          }}
         >
           {/* Video slides */}
           <div
-            className="transition-transform duration-700 ease-in-out h-full flex flex-col"
+            className="transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] h-full flex flex-col"
             style={{ transform: `translate3d(0, -${currentIndex * 100}%, 0)`, willChange: 'transform' }}
           >
             {clips.map((clip, index) => (
@@ -724,12 +946,30 @@ const Explore = () => {
                     src={clip.videoUrl}
                     poster={clip.coverUrl || undefined}
                     muted={index === currentIndex ? muted : true}
-                    autoPlay={index === currentIndex}
+                    autoPlay={index === currentIndex && (muted || hasUserInteracted)}
                     loop
                     playsInline
                     controls={false}
                     preload="auto"
                     onLoadedData={() => {
+                      const restore = restorePlaybackRef.current;
+                      if (
+                        restore &&
+                        index === currentIndexRef.current &&
+                        clip.id === restore.id &&
+                        Number.isFinite(restore.time) &&
+                        restore.time > 0
+                      ) {
+                        const el = videoRefs.current[index];
+                        if (el) {
+                          try {
+                            el.currentTime = restore.time;
+                          } catch {
+                            // ignore seek failures
+                          }
+                        }
+                        restorePlaybackRef.current = null;
+                      }
                       setReadyByClipId((prev) => ({ ...prev, [clip.id]: true }));
                       setErrorByClipId((prev) => ({ ...prev, [clip.id]: false }));
                       if (index === currentIndexRef.current && !userPausedRef.current) {
@@ -977,6 +1217,12 @@ const Explore = () => {
             </div>
           </div>
         </div>
+
+        {showJumpBanner && (
+          <div className="absolute top-16 left-4 right-4 sm:left-auto sm:right-4 sm:w-auto rounded-md border border-semkat-orange/40 bg-black/65 px-3 py-2 text-xs text-semkat-orange backdrop-blur">
+            Jumped from notification
+          </div>
+        )}
       </main>
     </div>
   );

@@ -1,0 +1,22 @@
+{
+  "appId": "com.semkathub.app",
+  "appName": "SEMKAT APP",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "backgroundColor": "#0c1324",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_INSIDE",
+      "showSpinner": true,
+      "androidSpinnerStyle": "large",
+      "spinnerColor": "#ffffff"
+    },
+    "GoogleSignIn": {
+      "clientId": "1080076065610-e53frmoblcmh4ds0fs9l07jd3thmdqpm.apps.googleusercontent.com",
+      "scopes": ["email", "profile"]
+    }
+  }
+}

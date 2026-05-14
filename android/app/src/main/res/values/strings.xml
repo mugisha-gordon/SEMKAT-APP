@@ -1,7 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">semkat-hub</string>
-    <string name="title_activity_main">semkat-hub</string>
-    <string name="package_name">com.semkat.semkathub</string>
-    <string name="custom_url_scheme">com.semkat.semkathub</string>
+    <string name="app_name">SEMKAT APP</string>
+    <string name="title_activity_main">SEMKAT APP</string>
+    <string name="package_name">com.semkathub.app</string>
+    <string name="custom_url_scheme">com.semkathub.app</string>
+    <!-- Required for Google Sign-In -->
+    <string name="server_client_id">1080076065610-e53frmoblcmh4ds0fs9l07jd3thmdqpm.apps.googleusercontent.com</string>
 </resources>

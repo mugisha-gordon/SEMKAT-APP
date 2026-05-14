@@ -5,6 +5,7 @@ import FeaturedProperties from '@/components/home/FeaturedProperties';
 import AgentsSection from '@/components/home/AgentsSection';
 import CTASection from '@/components/home/CTASection';
 
+
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">

@@ -42,9 +42,7 @@ const FeaturedProperties = () => {
           agents[u.userId] = {
             id: u.userId,
             name: u.profile.fullName || 'Agent',
-            avatar:
-              u.profile.avatarUrl ||
-              'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+            avatar: u.profile.avatarUrl || '',
             phone: u.profile.phone || '',
             email: u.email,
             rating: 4.5,
@@ -55,7 +53,7 @@ const FeaturedProperties = () => {
         setAgentData(agents);
 
         unsub = subscribeToProperties({ limit: 60 }, (allProps) => {
-          const props = allProps.filter((p) => approvedAgentIds.has(p.agentId));
+          const props = allProps.filter((p: any) => approvedAgentIds.has(p.agentId) || p.postedByRole === 'admin');
           const listingCounts = props.reduce<Record<string, number>>((acc, p) => {
             acc[p.agentId] = (acc[p.agentId] || 0) + 1;
             return acc;
@@ -66,6 +64,22 @@ const FeaturedProperties = () => {
             for (const id of Object.keys(next)) {
               next[id] = { ...next[id], totalListings: listingCounts[id] || 0 };
             }
+
+            // Synthetic admin agent profile (no fake photo)
+            for (const p of props as any[]) {
+              if (p?.postedByRole === 'admin' && !next[p.agentId]) {
+                next[p.agentId] = {
+                  id: p.agentId,
+                  name: 'Semkat Admin',
+                  avatar: '',
+                  phone: '',
+                  email: 'adminsemkat@gmail.com',
+                  rating: 5,
+                  totalListings: listingCounts[p.agentId] || 0,
+                };
+              }
+            }
+
             return next;
           });
 
@@ -107,7 +121,11 @@ const FeaturedProperties = () => {
         currency: prop.currency,
         location: prop.location,
         size: prop.size,
-        images: prop.images,
+        images: (prop as any).images || [],
+        illustration2D: prop.illustration2D,
+        illustration3D: prop.illustration3D,
+        kmlUrl: (prop as any).kmlUrl,
+        postedByRole: (prop as any).postedByRole,
         description: prop.description,
         features: prop.features,
         hasTitle: prop.hasTitle,
@@ -124,7 +142,7 @@ const FeaturedProperties = () => {
 
   const featuredProperties = useMemo(() => {
     const featured = convertedProperties.filter((p) => p.isFeatured);
-    return (featured.length > 0 ? featured : convertedProperties).slice(0, 6);
+    return (featured.length > 0 ? featured : convertedProperties).slice(0, 3);
   }, [convertedProperties]);
 
   return (
@@ -141,7 +159,7 @@ const FeaturedProperties = () => {
           </div>
           <Link to="/properties">
             <Button variant="outline-primary" className="group">
-              View All Properties
+              Show More
               <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>

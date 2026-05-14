@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { App as CapacitorApp } from "@capacitor/app";
 
@@ -11,10 +11,15 @@ import { App as CapacitorApp } from "@capacitor/app";
 const BackButtonHandler = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const isHandlingRef = useRef(false);
 
   useEffect(() => {
-    const handler = (ev?: { canGoBack?: boolean }) => {
+    const handler = async (ev?: { canGoBack?: boolean }) => {
       try {
+        if (isHandlingRef.current) {
+          return;
+        }
+
         // Prefer Capacitor's canGoBack when available.
         if (ev?.canGoBack) {
           navigate(-1);
@@ -28,22 +33,62 @@ const BackButtonHandler = () => {
           return;
         }
 
-        // If we're not on home, go home. If we're already home, do nothing (don't exit the app).
+        // If we're not on home, go home. If we're already home, ask to exit.
         if (location.pathname !== "/") {
           navigate("/", { replace: true });
+          return;
+        }
+
+        isHandlingRef.current = true;
+        const shouldExit = window.confirm("Do you want to leave the app?");
+        if (!shouldExit) {
+          return;
+        }
+
+        try {
+          await CapacitorApp.exitApp();
+          return;
+        } catch {
+          // ignore
+        }
+
+        // Web fallback: browsers may block window.close() unless opened by script.
+        try {
+          window.close();
+        } catch {
+          // ignore
         }
       } catch (e) {
         if (location.pathname !== "/") {
           navigate("/", { replace: true });
         }
+      } finally {
+        isHandlingRef.current = false;
       }
     };
 
     // Capacitor App back button (Android hardware)
-    const removeListener = CapacitorApp.addListener("backButton", handler);
+    let isActive = true;
+    let handleRef: { remove: () => Promise<void> } | null = null;
+
+    (async () => {
+      try {
+        const h = await CapacitorApp.addListener("backButton", handler);
+        if (!isActive) {
+          await h.remove();
+          return;
+        }
+        handleRef = h;
+      } catch {
+        // ignore
+      }
+    })();
 
     return () => {
-      removeListener && removeListener.remove && removeListener.remove();
+      isActive = false;
+      if (handleRef) {
+        void handleRef.remove();
+      }
     };
   }, [navigate, location.pathname]);
 

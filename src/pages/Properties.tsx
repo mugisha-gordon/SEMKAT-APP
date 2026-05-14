@@ -71,7 +71,7 @@ const Properties = () => {
         ]);
         const approvedAgentIds = new Set(approvedAgents.map((a) => a.userId));
 
-        const props = allProps.filter((p) => approvedAgentIds.has(p.agentId));
+        const props = allProps.filter((p: any) => approvedAgentIds.has(p.agentId) || p.postedByRole === 'admin');
         setFirestoreProperties(props);
 
         const listingCounts = props.reduce<Record<string, number>>((acc, p) => {
@@ -84,14 +84,27 @@ const Properties = () => {
           agents[u.userId] = {
             id: u.userId,
             name: u.profile.fullName || 'Unknown Agent',
-            avatar:
-              u.profile.avatarUrl ||
-              'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+            avatar: u.profile.avatarUrl || '',
             phone: u.profile.phone || '',
             email: u.email,
             rating: 4.5,
             totalListings: listingCounts[u.userId] || 0,
           };
+        }
+
+        // Synthetic admin agent profile so admin-posted properties can render publicly
+        for (const p of props as any[]) {
+          if (p?.postedByRole === 'admin' && !agents[p.agentId]) {
+            agents[p.agentId] = {
+              id: p.agentId,
+              name: 'Semkat Admin',
+              avatar: '',
+              phone: '',
+              email: 'adminsemkat@gmail.com',
+              rating: 5,
+              totalListings: listingCounts[p.agentId] || 0,
+            };
+          }
         }
 
         setAgentData(agents);
@@ -142,9 +155,11 @@ const Properties = () => {
       currency: prop.currency,
       location: prop.location,
       size: prop.size,
-      images: prop.images,
+      images: (prop as any).images || [],
       illustration2D: prop.illustration2D,
       illustration3D: prop.illustration3D,
+      kmlUrl: (prop as any).kmlUrl,
+      postedByRole: (prop as any).postedByRole,
       description: prop.description,
       features: prop.features,
       hasTitle: prop.hasTitle,
@@ -207,20 +222,20 @@ const Properties = () => {
       
       <main className="flex-1 bg-muted/30">
         {/* Hero */}
-        <section className="bg-gradient-hero py-12">
+        <section className="bg-gradient-hero py-8 sm:py-12">
           <div className="container">
-            <h1 className="font-heading text-3xl sm:text-4xl font-bold text-primary-foreground mb-2">
+            <h1 className="font-heading text-2xl xs:text-3xl sm:text-4xl font-bold text-primary-foreground mb-2">
               Browse Properties
             </h1>
-            <p className="text-primary-foreground/80">
+            <p className="text-primary-foreground/80 text-sm xs:text-base">
               Find your perfect investment from our curated selection
             </p>
           </div>
         </section>
 
-        <div className="container py-8">
+        <div className="container py-6 sm:py-8">
           {/* Search and filters bar */}
-          <div className="flex flex-col lg:flex-row gap-4 mb-8">
+          <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
             {/* Search input */}
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -279,8 +294,8 @@ const Properties = () => {
 
           {/* Expandable filters */}
           {showFilters && (
-            <div className="bg-card border rounded-xl p-6 mb-8 animate-scale-in">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-card border rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 animate-scale-in">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {/* Property Type */}
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">
@@ -433,6 +448,24 @@ const Properties = () => {
         property={selectedProperty}
         open={!!selectedProperty}
         onClose={() => setSelectedProperty(null)}
+        isFavorite={!!(selectedProperty && favoriteIds.has(selectedProperty.id))}
+        onToggleFavorite={async (p) => {
+          if (!user) return;
+          const isFav = favoriteIds.has(p.id);
+          try {
+            if (isFav) {
+              await removeFavoriteProperty(user.uid, p.id);
+            } else {
+              await saveFavoriteProperty(user.uid, p);
+            }
+          } catch (err) {
+            console.error('Failed to toggle favorite', err);
+          }
+        }}
+        onDeleted={(id) => {
+          setSelectedProperty(null);
+          setFirestoreProperties((prev) => prev.filter((p) => p.id !== id));
+        }}
       />
     </div>
   );

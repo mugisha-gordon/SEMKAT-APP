@@ -14,6 +14,30 @@
       },
       "oauth_client": [
         {
+          "client_id": "1080076065610-3o11lhm0ooddv76m1us5ho30s9gpkepj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.semkat.semkathub",
+            "certificate_hash": "9876c4703ca5c8e0a7de9c573601c7452846d4f5"
+          }
+        },
+        {
+          "client_id": "1080076065610-9g9cf7ji538i4fhmsi9cqvr4o4hpu0hc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.semkat.semkathub",
+            "certificate_hash": "668c1e3664f3985724a895b38d19ff470ebb3ba7"
+          }
+        },
+        {
+          "client_id": "1080076065610-cg1n5qvfe9ohfo92utfkb1ikdk1oivg4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.semkat.semkathub",
+            "certificate_hash": "dfe8fd6baaee1e12ccb297a4ec2dbf09b00b8587"
+          }
+        },
+        {
           "client_id": "1080076065610-e53frmoblcmh4ds0fs9l07jd3thmdqpm.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -29,6 +53,73 @@
             {
               "client_id": "1080076065610-e53frmoblcmh4ds0fs9l07jd3thmdqpm.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "1080076065610-ulps4je0d46a6roahr9bhum980hr3vjq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.semkat.semkathub"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1080076065610:android:98d65a16b1a631c1a3bfb3",
+        "android_client_info": {
+          "package_name": "com.semkathub.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1080076065610-2e3cbh5p2arccc90f0cjkdvcc2opecb3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.semkathub.app",
+            "certificate_hash": "9876c4703ca5c8e0a7de9c573601c7452846d4f5"
+          }
+        },
+        {
+          "client_id": "1080076065610-fhd64o4m7djeig5951s4uv73o727fq22.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.semkathub.app",
+            "certificate_hash": "668c1e3664f3985724a895b38d19ff470ebb3ba7"
+          }
+        },
+        {
+          "client_id": "1080076065610-rdso6v0paneqq05bo74l2qufh94u7qra.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.semkathub.app",
+            "certificate_hash": "dfe8fd6baaee1e12ccb297a4ec2dbf09b00b8587"
+          }
+        },
+        {
+          "client_id": "1080076065610-e53frmoblcmh4ds0fs9l07jd3thmdqpm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDN7kOwG33WsmMaQoC3HHxn1daRxigtXQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1080076065610-e53frmoblcmh4ds0fs9l07jd3thmdqpm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1080076065610-ulps4je0d46a6roahr9bhum980hr3vjq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.semkat.semkathub"
+              }
             }
           ]
         }

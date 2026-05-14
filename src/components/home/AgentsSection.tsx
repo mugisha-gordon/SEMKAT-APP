@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, ArrowRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -9,12 +9,22 @@ import type { Agent } from '@/types/property';
 import MessageAgentButton from '@/components/messaging/MessageAgentButton';
 
 const AgentsSection = () => {
+  const shuffleSeedRef = useMemo(() => {
+    const raw = sessionStorage.getItem('semkat_home_agents_shuffle_seed');
+    if (raw) {
+      const n = Number(raw);
+      if (!Number.isNaN(n)) return n;
+    }
+    const seed = Date.now();
+    sessionStorage.setItem('semkat_home_agents_shuffle_seed', String(seed));
+    return seed;
+  }, []);
   const [agents, setAgents] = useState<Agent[]>([]);
 
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const approvedAgents = await getApprovedAgents(4);
+        const approvedAgents = await getApprovedAgents(60);
 
         const countsByAgent = await Promise.all(
           approvedAgents.map(async (a) => {
@@ -32,6 +42,16 @@ const AgentsSection = () => {
           return acc;
         }, {});
 
+        const rankForId = (id: string) => {
+          let h = 2166136261;
+          const s = `${shuffleSeedRef}:${id}`;
+          for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+          }
+          return h >>> 0;
+        };
+
         const mapped = approvedAgents.map((u) => ({
           id: u.userId,
           name: u.profile?.fullName || u.email || 'Agent',
@@ -45,14 +65,14 @@ const AgentsSection = () => {
           totalListings: listingCounts[u.userId] || 0,
         }));
 
-        setAgents(mapped);
+        setAgents(mapped.sort((a, b) => rankForId(a.id) - rankForId(b.id)).slice(0, 3));
       } catch (error) {
         console.error('Error fetching agents:', error);
       }
     };
 
     fetchAgents();
-  }, []);
+  }, [shuffleSeedRef]);
 
   return (
     <section className="py-20 bg-muted/30">
@@ -68,13 +88,13 @@ const AgentsSection = () => {
           </div>
           <Link to="/agents">
             <Button variant="outline-sky" className="group">
-              View All Agents
+              Show More
               <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {agents.map((agent, index) => (
             <Card 
               key={agent.id} 
@@ -118,6 +138,7 @@ const AgentsSection = () => {
               <MessageAgentButton
                 agentId={agent.id}
                 agentName={agent.name}
+                label="Message Agent"
                 variant="outline"
                 className="w-full"
               />

@@ -1,41 +1,70 @@
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
     function isBootstrapAdmin() {
-      return request.auth != null &&
+      return isAuthenticated() &&
              request.auth.token.email != null &&
              request.auth.token.email == 'adminsemkat@gmail.com';
     }
 
-    // Public reads for media
+    // App profile images
     match /avatars/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null &&
-                   request.auth.uid == userId &&
+      allow write: if isOwner(userId) &&
                    request.resource.size < 50 * 1024 * 1024 &&
                    request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null && (request.auth.uid == userId || isBootstrapAdmin());
+      allow delete: if isOwner(userId) || isBootstrapAdmin();
     }
 
-    match /properties/{allPaths=**} {
+    // Legacy profile pictures path (keep compatibility with older clients)
+    match /profile_pictures/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null &&
+      allow write: if isOwner(userId) &&
                    request.resource.size < 50 * 1024 * 1024 &&
                    request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null;
+      allow delete: if isOwner(userId) || isBootstrapAdmin();
     }
 
+    // Property assets: images, KML/XML, model files
+    match /properties/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(userId) &&
+                   request.resource.size < 50 * 1024 * 1024 &&
+                   (
+                     request.resource.contentType.matches('image/.*') ||
+                     request.resource.contentType.matches('application/.*xml.*') ||
+                     request.resource.contentType.matches('text/xml') ||
+                     request.resource.contentType.matches('model/.*') ||
+                     request.resource.contentType.matches('application/octet-stream')
+                   );
+      allow delete: if isOwner(userId) || isBootstrapAdmin();
+    }
+
+    // Video uploads (primary path used by app)
     match /videos/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null &&
-                   request.auth.uid == userId &&
+      allow write: if (isOwner(userId) || isBootstrapAdmin()) &&
                    request.resource.size < 200 * 1024 * 1024 &&
                    request.resource.contentType.matches('video/.*');
-      allow delete: if request.auth != null && (request.auth.uid == userId || isBootstrapAdmin());
+      allow delete: if isOwner(userId) || isBootstrapAdmin();
     }
 
-    // Deny all other paths
+    // Public assets path used by some legacy features
+    match /public_posts/{postId}/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Deny all other access by default
     match /{allPaths=**} {
       allow read, write: if false;
     }

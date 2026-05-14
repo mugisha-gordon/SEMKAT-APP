@@ -9,6 +9,7 @@ export interface Property {
   status: PropertyStatus;
   price: number;
   currency: string;
+  postedByRole?: 'agent' | 'admin';
   location: {
     region: string;
     district: string;
@@ -22,6 +23,7 @@ export interface Property {
   images: string[];
   illustration2D?: string; // URL for 2D floor plan/diagram
   illustration3D?: string; // URL for 3D virtual tour/panorama
+  kmlUrl?: string; // URL for estate tour boundaries/paths
   description: string;
   features: string[];
   hasTitle: boolean;

@@ -170,7 +170,7 @@ const Services = () => {
                             <ArrowRight className="h-4 w-4 ml-2" />
                           </Button>
                         </Link>
-                        <a href="tel:+256700123456">
+                        <a href="tel:+256772336754">
                           <Button variant="outline">
                             <Phone className="h-4 w-4 mr-2" />
                             Contact Us
@@ -216,10 +216,10 @@ const Services = () => {
                     Message an Agent
                   </Button>
                 </Link>
-                <a href="tel:+256700123456">
+                <a href="tel:+256772336754">
                   <Button variant="outline" size="lg">
                     <Phone className="h-5 w-5 mr-2" />
-                    Call +256 700 123 456
+                    Call +256 772336754
                   </Button>
                 </a>
               </div>

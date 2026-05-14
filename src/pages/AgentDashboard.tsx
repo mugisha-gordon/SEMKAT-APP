@@ -139,7 +139,7 @@ const AgentDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
       <main className="flex-1 py-8">
@@ -151,10 +151,10 @@ const AgentDashboard = () => {
               <h1 className="font-heading text-3xl font-bold">
                 Welcome, {profile.full_name || 'Agent'}
               </h1>
-              <p className="text-white/60 text-sm mt-1">{user?.email}</p>
+              <p className="text-muted-foreground text-sm mt-1">{user?.email}</p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              {user && <PropertyPostForm agentId={user.uid} onSuccess={refreshProperties} />}
+            <div className="flex flex-wrap gap-2">
+              {user && <PropertyPostForm agentId={user.uid} postedByRole="agent" onSuccess={refreshProperties} />}
               {user && (
                 <VideoPostForm 
                   onSuccess={() => {
@@ -165,7 +165,7 @@ const AgentDashboard = () => {
                   }} 
                 />
               )}
-              <Button variant="outline" className="border-white/30 text-white hover:bg-white/10" onClick={signOut}>
+              <Button variant="outline" onClick={signOut}>
                 Sign out
               </Button>
             </div>
@@ -173,49 +173,49 @@ const AgentDashboard = () => {
 
           {/* Stats Grid */}
           <div className="grid gap-4 md:grid-cols-4">
-            <Card className="bg-gradient-to-br from-semkat-orange/20 to-semkat-orange/5 border-semkat-orange/20 text-white p-5">
+            <Card className="bg-gradient-to-br from-semkat-orange/20 to-semkat-orange/5 border-semkat-orange/20 text-foreground p-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-semkat-orange/20">
                   <Building className="h-5 w-5 text-semkat-orange" />
                 </div>
                 <div>
-                  <p className="text-white/70 text-sm">Total Listings</p>
+                  <p className="text-muted-foreground text-sm">Total Listings</p>
                   <p className="font-heading text-2xl font-bold">{stats.totalListings}</p>
                 </div>
               </div>
             </Card>
             
-            <Card className="bg-gradient-to-br from-green-500/20 to-green-500/5 border-green-500/20 text-white p-5">
+            <Card className="bg-gradient-to-br from-green-500/20 to-green-500/5 border-green-500/20 text-foreground p-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-green-500/20">
                   <CheckCircle className="h-5 w-5 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-white/70 text-sm">Active</p>
+                  <p className="text-muted-foreground text-sm">Active</p>
                   <p className="font-heading text-2xl font-bold">{stats.activeListings}</p>
                 </div>
               </div>
             </Card>
             
-            <Card className="bg-gradient-to-br from-semkat-sky/20 to-semkat-sky/5 border-semkat-sky/20 text-white p-5">
+            <Card className="bg-gradient-to-br from-semkat-sky/20 to-semkat-sky/5 border-semkat-sky/20 text-foreground p-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-semkat-sky/20">
                   <Eye className="h-5 w-5 text-semkat-sky" />
                 </div>
                 <div>
-                  <p className="text-white/70 text-sm">Total Views</p>
+                  <p className="text-muted-foreground text-sm">Total Views</p>
                   <p className="font-heading text-2xl font-bold">{stats.totalViews.toLocaleString()}</p>
                 </div>
               </div>
             </Card>
             
-            <Card className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/20 text-white p-5">
+            <Card className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/20 text-foreground p-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-purple-500/20">
                   <MessageSquare className="h-5 w-5 text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-white/70 text-sm">Inquiries</p>
+                  <p className="text-muted-foreground text-sm">Inquiries</p>
                   <p className="font-heading text-2xl font-bold">{stats.inquiries}</p>
                 </div>
               </div>
@@ -223,9 +223,9 @@ const AgentDashboard = () => {
           </div>
 
           {/* Main Content Tabs */}
-          <Card className="bg-white/5 border-white/10 text-white p-6">
+          <Card className="bg-card border-border text-card-foreground p-6">
             <Tabs defaultValue="listings" className="w-full">
-              <TabsList className="bg-white/5 border-white/10 flex flex-wrap h-auto">
+              <TabsList className="bg-muted border-border flex flex-wrap h-auto">
                 <TabsTrigger value="listings" className="data-[state=active]:bg-semkat-orange">
                   <Building className="h-4 w-4 mr-2" />
                   My Listings
@@ -242,9 +242,9 @@ const AgentDashboard = () => {
 
               <TabsContent value="listings" className="mt-6">
                 {propertiesLoading ? (
-                  <p className="text-white/60 text-center py-8">Loading properties...</p>
+                  <p className="text-muted-foreground text-center py-8">Loading properties...</p>
                 ) : properties.length === 0 ? (
-                  <div className="text-center py-12 text-white/60">
+                  <div className="text-center py-12 text-muted-foreground">
                     <Building className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No properties posted yet</p>
                     <p className="text-sm mt-1">Use "Post Property" button to add your first listing</p>
@@ -252,11 +252,11 @@ const AgentDashboard = () => {
                 ) : (
                   <div className="space-y-4">
                     {properties.map((property) => (
-                      <div key={property.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-white/5 border border-white/10">
+                      <div key={property.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-muted border border-border">
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold">{property.title}</h4>
-                          <p className="text-white/60 text-sm">{property.currency} {property.price.toLocaleString()}</p>
-                          <p className="text-white/50 text-xs mt-1">{property.location.district}, {property.location.region}</p>
+                          <p className="text-muted-foreground text-sm">{property.currency} {property.price.toLocaleString()}</p>
+                          <p className="text-muted-foreground text-xs mt-1">{property.location.district}, {property.location.region}</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 sm:justify-end">
                           <Badge className={
@@ -265,20 +265,15 @@ const AgentDashboard = () => {
                             property.status === 'under-offer' ? 'bg-yellow-500/20 text-yellow-400' :
                             'bg-blue-500/20 text-blue-400'
                           }>
-                            {property.status.replace('-', ' ')}
+                            {property.status}
                           </Badge>
                           <Button
                             size="sm"
                             variant="outline"
-                            className="border-white/30 text-white hover:bg-white/10"
                             onClick={() => togglePropertyStatus(property)}
                             disabled={updatingPropertyId === property.id}
                           >
-                            {updatingPropertyId === property.id
-                              ? 'Updating...'
-                              : property.status === 'available'
-                                ? 'Mark Sold'
-                                : 'Mark Available'}
+                            {updatingPropertyId === property.id ? 'Updating...' : `Mark as ${property.status === 'available' ? 'sold' : 'available'}`}
                           </Button>
                         </div>
                       </div>
@@ -290,24 +285,24 @@ const AgentDashboard = () => {
               <TabsContent value="inquiries" className="mt-6">
                 <div className="space-y-4">
                   {conversations.length === 0 ? (
-                    <p className="text-white/60 text-center py-8">No inquiries yet</p>
+                    <p className="text-muted-foreground text-center py-8">No inquiries yet</p>
                   ) : (
                     conversations.map((c) => {
                       const otherId = c.participantIds.find((id: string) => id !== user?.uid);
                       const unread = c.unreadCount?.[user?.uid] || 0;
                       return (
-                        <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-white/5 border border-white/10">
+                        <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-lg bg-card border border-border">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-full bg-semkat-orange/20 flex items-center justify-center">
-                              <Users className="h-5 w-5 text-semkat-orange" />
+                            <div className="w-10 h-10 rounded-full bg-semkat-sky/10 flex items-center justify-center">
+                              <Users className="h-5 w-5 text-semkat-sky" />
                             </div>
                             <div className="min-w-0">
                               <h4 className="font-semibold">Conversation with {otherId}</h4>
-                              <p className="text-white/60 text-sm truncate">Last message: {c.lastMessage}</p>
+                              <p className="text-muted-foreground text-sm truncate">Last message: {c.lastMessage}</p>
                             </div>
                           </div>
                           <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                            <span className="flex items-center gap-1 text-white/50 text-sm">
+                            <span className="flex items-center gap-1 text-muted-foreground text-sm">
                               <Clock className="h-4 w-4" />
                               {c.lastMessageAt?.toDate?.().toLocaleString?.() || ""}
                             </span>
@@ -323,7 +318,7 @@ const AgentDashboard = () => {
               </TabsContent>
 
               <TabsContent value="analytics" className="mt-6">
-                <div className="text-center py-12 text-white/60">
+                <div className="text-center py-12 text-muted-foreground">
                   <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>Analytics dashboard coming soon</p>
                 </div>

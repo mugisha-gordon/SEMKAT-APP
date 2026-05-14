@@ -1,4 +1,4 @@
-package com.semkat.semkathub;
+package com.semkathub.app;
 
 import com.getcapacitor.BridgeActivity;
 

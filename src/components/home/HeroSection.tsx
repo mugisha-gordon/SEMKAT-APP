@@ -53,19 +53,19 @@ const HeroSection = () => {
           </div>
 
           {/* Headline */}
-          <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-background leading-tight mb-6 animate-slide-up">
+          <h1 className="font-heading text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-bold text-background leading-tight mb-6 animate-slide-up break-words">
             Invest in Your Future with{' '}
-            <span className="text-gradient bg-gradient-hero">Semkat Group Uganda Limited</span>
+            <span className="text-gradient bg-gradient-hero break-words">Semkat Group Uganda Limited</span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-background/80 max-w-2xl mb-10 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <p className="text-base xs:text-lg sm:text-xl text-background/80 max-w-2xl mb-10 animate-slide-up" style={{ animationDelay: '0.1s' }}>
             Discover verified land, premium properties, and investment opportunities across Uganda. From land sales to construction — we've got you covered.
           </p>
 
           {/* Search Box */}
           <div className="bg-background rounded-2xl p-4 sm:p-6 shadow-2xl animate-slide-up" style={{ animationDelay: '0.2s' }}>
             {/* Property type tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
+            <div className="flex flex-wrap gap-2 mb-4">
               {propertyTypes.map((type) => {
                 const Icon = type.icon;
                 return (
@@ -73,7 +73,7 @@ const HeroSection = () => {
                     key={type.id}
                     onClick={() => setActiveType(type.id)}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
+                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-normal transition-all",
                       activeType === type.id
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:bg-accent"
@@ -120,7 +120,7 @@ const HeroSection = () => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-6 mt-10 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <div className="grid grid-cols-1 xs:grid-cols-3 gap-4 sm:gap-6 mt-10 animate-slide-up" style={{ animationDelay: '0.3s' }}>
             {[
               { value: '500+', label: 'Properties Listed' },
               { value: '1,200+', label: 'Happy Clients' },

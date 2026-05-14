@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,16 +9,68 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { createProperty } from "@/integrations/firebase/properties";
-import { uploadImage } from "@/integrations/firebase/storage";
+import { uploadImage, uploadKml } from "@/integrations/firebase/storage";
 import type { PropertyType, PropertyStatus } from "@/types/property";
 import { Plus, Upload, X, Image, FileImage, Video } from "lucide-react";
+import { fireConfetti } from "@/lib/confetti";
 
 interface PropertyPostFormProps {
   agentId: string;
   onSuccess?: () => void;
+  postedByRole?: 'agent' | 'admin';
 }
 
-const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif'] as const;
+
+const isLikelyImageFile = (file: File): boolean => {
+  if (file.type?.startsWith('image/')) {
+    return true;
+  }
+  const lowerName = (file.name || '').toLowerCase();
+  return IMAGE_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+};
+
+const sniffImageContainer = async (file: File): Promise<boolean> => {
+  try {
+    const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (header.length < 4) return false;
+
+    // JPEG
+    if (header[0] === 0xff && header[1] === 0xd8) return true;
+    // PNG
+    if (
+      header[0] === 0x89 &&
+      header[1] === 0x50 &&
+      header[2] === 0x4e &&
+      header[3] === 0x47
+    ) return true;
+    // GIF
+    if (
+      header[0] === 0x47 &&
+      header[1] === 0x49 &&
+      header[2] === 0x46
+    ) return true;
+    // WEBP: "RIFF....WEBP"
+    if (
+      header[0] === 0x52 &&
+      header[1] === 0x49 &&
+      header[2] === 0x46 &&
+      header[3] === 0x46 &&
+      header.length >= 12 &&
+      header[8] === 0x57 &&
+      header[9] === 0x45 &&
+      header[10] === 0x42 &&
+      header[11] === 0x50
+    ) return true;
+    // BMP
+    if (header[0] === 0x42 && header[1] === 0x4d) return true;
+  } catch {
+    // ignore and fall through
+  }
+  return false;
+};
+
+const PropertyPostForm = ({ agentId, onSuccess, postedByRole = 'agent' }: PropertyPostFormProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -27,8 +79,15 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
   const [illustration2DFile, setIllustration2DFile] = useState<File | null>(null);
   const [illustration2DPreview, setIllustration2DPreview] = useState<string | null>(null);
   const [uploading2D, setUploading2D] = useState(false);
+  const [illustration3DFile, setIllustration3DFile] = useState<File | null>(null);
+  const [illustration3DPreview, setIllustration3DPreview] = useState<string | null>(null);
+  const [uploading3D, setUploading3D] = useState(false);
+  const [kmlFile, setKmlFile] = useState<File | null>(null);
+  const [uploadingKml, setUploadingKml] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const illustration2DInputRef = useRef<HTMLInputElement>(null);
+  const illustration3DInputRef = useRef<HTMLInputElement>(null);
+  const kmlInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -45,6 +104,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
     images: "" as string, // Deprecated (device uploads only)
     illustration2D: "", // URL for 2D floor plan
     illustration3D: "", // URL for 3D virtual tour/panorama
+    kmlUrl: "", // URL for estate tour KML
     features: "" as string, // Comma-separated
     hasTitle: true,
     bedrooms: "",
@@ -57,7 +117,15 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
   });
 
   const handleImageUpload = async (files: FileList) => {
-    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    const selectedFiles = Array.from(files);
+    const imageFiles: File[] = [];
+
+    for (const file of selectedFiles) {
+      if (isLikelyImageFile(file) || await sniffImageContainer(file)) {
+        imageFiles.push(file);
+      }
+    }
+
     if (imageFiles.length === 0) {
       toast.error("Please select image files");
       return;
@@ -118,12 +186,71 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
     }
   };
 
+  const handle3DIllustrationUpload = async (file: File): Promise<string> => {
+    if (!isLikelyImageFile(file) && !await sniffImageContainer(file)) {
+      toast.error('Please select an image file for 3D illustration');
+      return;
+    }
+
+    setUploading3D(true);
+    try {
+      const path = `properties/${agentId}/3d_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const url = await uploadImage(file, path);
+      setFormData((prev) => ({ ...prev, illustration3D: url }));
+      toast.success('3D illustration uploaded successfully');
+      return url;
+    } catch (error: any) {
+      console.error('Error uploading 3D illustration:', error);
+      toast.error(error.message || 'Failed to upload 3D illustration');
+      throw error;
+    } finally {
+      setUploading3D(false);
+      setIllustration3DFile(null);
+      if (illustration3DPreview) {
+        URL.revokeObjectURL(illustration3DPreview);
+        setIllustration3DPreview(null);
+      }
+    }
+  };
+
+  const handle3DFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIllustration3DFile(file);
+    const preview = URL.createObjectURL(file);
+    setIllustration3DPreview(preview);
+  };
+
+  const handleKmlUpload = async (file: File): Promise<string> => {
+    setUploadingKml(true);
+    try {
+      const path = `properties/${agentId}/kml_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const url = await uploadKml(file, path);
+      setFormData((prev) => ({ ...prev, kmlUrl: url }));
+      toast.success('Estate tour (KML) uploaded successfully');
+      return url;
+    } catch (error: any) {
+      console.error('Error uploading KML:', error);
+      toast.error(error.message || 'Failed to upload KML');
+      throw error;
+    } finally {
+      setUploadingKml(false);
+      setKmlFile(null);
+    }
+  };
+
+  const handleKmlFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setKmlFile(file);
+  };
+
   const handleRemoveImage = (index: number) => {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handle2DIllustrationUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
+  const handle2DIllustrationUpload = async (file: File): Promise<string> => {
+    if (!isLikelyImageFile(file) && !await sniffImageContainer(file)) {
       toast.error("Please select an image file for 2D illustration");
       return;
     }
@@ -134,9 +261,11 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
       const url = await uploadImage(file, path);
       setFormData(prev => ({ ...prev, illustration2D: url }));
       toast.success("2D illustration uploaded successfully");
+      return url;
     } catch (error: any) {
       console.error("Error uploading 2D illustration:", error);
       toast.error(error.message || "Failed to upload 2D illustration");
+      throw error;
     } finally {
       setUploading2D(false);
       setIllustration2DFile(null);
@@ -161,19 +290,27 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
     setLoading(true);
 
     try {
+      let illustration2DUrl = formData.illustration2D || undefined;
+      let illustration3DUrl = formData.illustration3D || undefined;
+      let uploadedKmlUrl = formData.kmlUrl || undefined;
+
       // Upload 2D illustration if file selected
-      if (illustration2DFile && !formData.illustration2D) {
-        await handle2DIllustrationUpload(illustration2DFile);
+      if (illustration2DFile && !illustration2DUrl) {
+        illustration2DUrl = await handle2DIllustrationUpload(illustration2DFile);
+      }
+
+      // Upload 3D illustration if file selected
+      if (illustration3DFile && !illustration3DUrl) {
+        illustration3DUrl = await handle3DIllustrationUpload(illustration3DFile);
+      }
+
+      // Upload KML if selected
+      if (kmlFile && !uploadedKmlUrl) {
+        uploadedKmlUrl = await handleKmlUpload(kmlFile);
       }
 
       // Combine uploaded images with manually entered URLs
       const allImages = uploadedImages;
-
-      if (allImages.length === 0) {
-        toast.error("Please upload at least one image");
-        setLoading(false);
-        return;
-      }
 
       // Parse features
       const features = formData.features
@@ -202,6 +339,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
 
       const property = await createProperty({
         agentId,
+        postedByRole,
         title: formData.title,
         type: formData.type,
         status: formData.status,
@@ -217,8 +355,9 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
           unit: formData.sizeUnit,
         },
         images: allImages,
-        illustration2D: formData.illustration2D || undefined,
-        illustration3D: formData.illustration3D || undefined,
+        illustration2D: illustration2DUrl,
+        illustration3D: illustration3DUrl,
+        kmlUrl: uploadedKmlUrl,
         description: formData.description,
         features,
         hasTitle: formData.hasTitle,
@@ -229,6 +368,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
       });
 
       toast.success("Property posted successfully!");
+      fireConfetti();
       setOpen(false);
       // Reset form
       setFormData({
@@ -246,6 +386,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
         images: "",
         illustration2D: "",
         illustration3D: "",
+        kmlUrl: "",
         features: "",
         hasTitle: true,
         bedrooms: "",
@@ -258,12 +399,20 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
       });
       setUploadedImages([]);
       setIllustration2DFile(null);
+      setIllustration3DFile(null);
+      setKmlFile(null);
       if (illustration2DPreview) {
         URL.revokeObjectURL(illustration2DPreview);
         setIllustration2DPreview(null);
       }
+      if (illustration3DPreview) {
+        URL.revokeObjectURL(illustration3DPreview);
+        setIllustration3DPreview(null);
+      }
       if (imageInputRef.current) imageInputRef.current.value = '';
       if (illustration2DInputRef.current) illustration2DInputRef.current.value = '';
+      if (illustration3DInputRef.current) illustration3DInputRef.current.value = '';
+      if (kmlInputRef.current) kmlInputRef.current.value = '';
       onSuccess?.();
     } catch (error: any) {
       console.error("Error posting property:", error);
@@ -281,9 +430,13 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
           Post Property
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-slate-900 border-white/10 text-white max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="bg-slate-900 border-white/10 text-white max-h-[min(90dvh,calc(100dvh-6rem))] overflow-y-auto"
+        style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px) + 12px)' }}
+      >
         <DialogHeader>
           <DialogTitle className="font-heading text-xl">Post New Property</DialogTitle>
+          <DialogDescription className="sr-only">Create and publish a new property listing.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="grid grid-cols-2 gap-4">
@@ -363,7 +516,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Status *</Label>
               <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as PropertyStatus })}>
@@ -391,7 +544,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Region *</Label>
               <Input
@@ -424,7 +577,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Size Value *</Label>
               <Input
@@ -452,7 +605,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Bedrooms</Label>
               <Input
@@ -490,7 +643,7 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
 
           {/* Image Upload Section */}
           <div className="space-y-4">
-            <Label>Property Images *</Label>
+            <Label>Property Images (optional)</Label>
             
             {/* Upload Images */}
             <div className="border-2 border-dashed border-white/20 rounded-lg p-6 text-center hover:border-semkat-orange/50 transition-colors">
@@ -582,14 +735,94 @@ const PropertyPostForm = ({ agentId, onSuccess }: PropertyPostFormProps) => {
 
           {/* 3D Illustration (Virtual Tour URL) */}
           <div className="space-y-2">
-            <Label>3D Illustration (Virtual Tour/Panorama URL)</Label>
+            <Label>3D Illustration (Upload or URL)</Label>
+            <div className="flex gap-2">
+              <div className="flex-1 border-2 border-dashed border-white/20 rounded-lg p-4 text-center hover:border-semkat-orange/50 transition-colors">
+                <input
+                  ref={illustration3DInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handle3DFileSelect}
+                  className="hidden"
+                  id="illustration-3d"
+                  disabled={uploading3D}
+                />
+                <label
+                  htmlFor="illustration-3d"
+                  className="cursor-pointer flex flex-col items-center gap-2"
+                >
+                  <Video className="h-6 w-6 text-white/50" />
+                  <span className="text-white/70 text-xs">
+                    {uploading3D
+                      ? "Uploading..."
+                      : illustration3DPreview
+                        ? "Change 3D illustration"
+                        : "Upload panorama image"}
+                  </span>
+                </label>
+              </div>
+              {illustration3DPreview && (
+                <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-white/20">
+                  <img src={illustration3DPreview} alt="3D preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+              {formData.illustration3D && !illustration3DPreview && formData.illustration3D.match(/\.(jpg|jpeg|png|gif|webp)$/i) && (
+                <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-white/20">
+                  <img src={formData.illustration3D} alt="3D illustration" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+
+            {illustration3DFile && !formData.illustration3D && (
+              <Button type="button" variant="hero" className="w-full" onClick={() => handle3DIllustrationUpload(illustration3DFile)} disabled={uploading3D}>
+                {uploading3D ? 'Uploading...' : 'Attach 3D illustration'}
+              </Button>
+            )}
+
             <Input
               value={formData.illustration3D}
               onChange={(e) => setFormData({ ...formData, illustration3D: e.target.value })}
-              placeholder="https://example.com/3d-tour or https://example.com/panorama.jpg"
+              placeholder="Or paste a URL (https://example.com/3d-tour or panorama.jpg)"
               className="bg-white/5 border-white/20"
             />
-            <p className="text-xs text-white/50">Enter URL for 3D virtual tour or 360° panorama image</p>
+            <p className="text-xs text-white/50">You can upload a 360° panorama image from your device, or paste a URL.</p>
+          </div>
+
+          {/* Estate Tour (KML) */}
+          <div className="space-y-2">
+            <Label>Estate Tour (KML file)</Label>
+            <div className="flex items-center gap-3">
+              <input
+                ref={kmlInputRef}
+                type="file"
+                accept=".kml,application/vnd.google-earth.kml+xml,text/xml,application/xml"
+                onChange={handleKmlFileSelect}
+                className="hidden"
+                id="kml-file"
+                disabled={uploadingKml}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={uploadingKml}
+                onClick={() => kmlInputRef.current?.click()}
+              >
+                {uploadingKml ? 'Uploading...' : formData.kmlUrl ? 'Replace KML' : 'Upload KML'}
+              </Button>
+
+              {kmlFile && !formData.kmlUrl && (
+                <Button type="button" variant="hero" onClick={() => handleKmlUpload(kmlFile)} disabled={uploadingKml}>
+                  Attach
+                </Button>
+              )}
+
+              {formData.kmlUrl && (
+                <Button type="button" variant="destructive" onClick={() => setFormData((p) => ({ ...p, kmlUrl: '' }))}>
+                  Remove
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-white/50">Attach a .kml file so users can tour the estate inside the app.</p>
           </div>
 
           <div className="space-y-2">

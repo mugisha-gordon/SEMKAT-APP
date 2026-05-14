@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ const typeMeta: Record<string, { icon: any; badgeClass: string }> = {
 
 const NotificationDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [item, setItem] = useState<NotificationDocument | null>(null);
   const [itemLoading, setItemLoading] = useState(false);
@@ -42,6 +43,20 @@ const NotificationDetail = () => {
       })
       .finally(() => setItemLoading(false));
   }, [user, id]);
+
+  const getNotificationRoute = (notification: NotificationDocument): string => {
+    if (notification.targetPath) return notification.targetPath;
+    const text = `${notification.title} ${notification.description}`.toLowerCase();
+    if (text.includes("message")) {
+      return notification.actorId ? `/messages?user=${encodeURIComponent(notification.actorId)}` : "/messages";
+    }
+    if (text.includes("new agent application")) return "/admin";
+    if (text.includes("approved")) return "/agent-dashboard";
+    if (text.includes("rejected")) return "/dashboard";
+    if (text.includes("like") || text.includes("comment") || text.includes("video")) return "/explore";
+    if (text.includes("property")) return "/properties";
+    return "/notifications";
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -91,7 +106,10 @@ const NotificationDetail = () => {
               </Button>
             </Card>
           ) : (
-            <Card className="bg-card border p-6 space-y-3">
+            <Card
+              className="bg-card border p-6 space-y-3 cursor-pointer hover:bg-accent/40 transition-colors"
+              onClick={() => navigate(getNotificationRoute(item))}
+            >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {(() => {
@@ -116,7 +134,7 @@ const NotificationDetail = () => {
                 <Badge className={(typeMeta[item.type] || typeMeta.info).badgeClass}>{item.type}</Badge>
               </div>
 
-              <p className="text-muted-foreground">{item.description}</p>
+              <p className="text-muted-foreground break-words whitespace-normal">{item.description}</p>
 
               {item.readAt ? (
                 <p className="text-xs text-muted-foreground">

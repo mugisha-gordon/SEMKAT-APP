@@ -1,17 +1,13 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// Top-level build file
 
 buildscript {
-    
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.13.0'
-        classpath 'com.google.gms:google-services:4.4.4'
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
+        classpath "com.android.tools.build:gradle:8.7.2"
+        classpath "com.google.gms:google-services:4.4.2"
     }
 }
 
@@ -24,6 +20,26 @@ allprojects {
     }
 }
 
-task clean(type: Delete) {
+/**
+ * 🔒 FORCE ONE KOTLIN VERSION
+ * Fixes duplicate kotlin-stdlib / jdk7 / jdk8 errors (AAB killer)
+ */
+subprojects {
+    configurations.all {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-stdlib:1.8.22"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22"
+        }
+    }
+
+    // Keep builds compatible with JDK 17 environments.
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17.toString()
+        targetCompatibility = JavaVersion.VERSION_17.toString()
+    }
+}
+
+tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }

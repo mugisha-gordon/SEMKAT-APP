@@ -66,6 +66,34 @@ async function getOrCreateConversation(
   const conversationSnap = await getDoc(conversationRef);
 
   if (conversationSnap.exists()) {
+    // Backfill legacy conversations that might be missing required fields.
+    const data = conversationSnap.data() as Partial<ConversationDocument> | undefined;
+    const participants = [userId1, userId2].sort();
+    const needsParticipants =
+      !data?.participantIds || !Array.isArray(data.participantIds) || data.participantIds.length !== 2;
+    const needsUnread =
+      !data?.unreadCount ||
+      typeof data.unreadCount !== 'object' ||
+      data.unreadCount == null ||
+      data.unreadCount[userId1] == null ||
+      data.unreadCount[userId2] == null;
+
+    if (needsParticipants || needsUnread) {
+      // Use merge so we don't overwrite existing conversation metadata.
+      await setDoc(
+        conversationRef,
+        {
+          participantIds: participants,
+          unreadCount: {
+            ...(data?.unreadCount || {}),
+            [userId1]: (data?.unreadCount as any)?.[userId1] ?? 0,
+            [userId2]: (data?.unreadCount as any)?.[userId2] ?? 0,
+          },
+          updatedAt: Timestamp.now(),
+        },
+        { merge: true }
+      );
+    }
     return conversationId;
   }
 
@@ -111,15 +139,16 @@ export async function sendMessage(
   // Update conversation
   const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
   const conversationSnap = await getDoc(conversationRef);
-  const conversation = conversationSnap.data() as ConversationDocument;
+  const conversation = (conversationSnap.data() as ConversationDocument) || ({} as ConversationDocument);
+  const unread = (conversation as any)?.unreadCount || {};
 
   await updateDoc(conversationRef, {
     lastMessage: data.content,
     lastMessageAt: Timestamp.now(),
     lastMessageSenderId: data.senderId,
     unreadCount: {
-      ...conversation.unreadCount,
-      [data.receiverId]: (conversation.unreadCount[data.receiverId] || 0) + 1,
+      ...unread,
+      [data.receiverId]: ((unread as any)[data.receiverId] || 0) + 1,
     },
     updatedAt: Timestamp.now(),
   });
@@ -132,6 +161,8 @@ export async function sendMessage(
       type: 'info',
       audience: 'user',
       userId: data.receiverId,
+      actorId: data.senderId,
+      targetPath: `/messages?user=${encodeURIComponent(data.senderId)}`,
     });
   } catch {
     // ignore notification failures
@@ -214,23 +245,42 @@ export async function markMessagesAsRead(
   );
 
   const snapshot = await getDocs(q);
-  const updatePromises = snapshot.docs.map((doc) =>
-    updateDoc(doc.ref, { read: true })
-  );
 
-  await Promise.all(updatePromises);
-
-  // Update conversation unread count
-  const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
-  const conversationSnap = await getDoc(conversationRef);
-  if (conversationSnap.exists()) {
+  // If there are no unread messages, only update the conversation if its unreadCount is > 0.
+  // This avoids a write->snapshot->write loop.
+  if (snapshot.empty) {
+    const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
+    const conversationSnap = await getDoc(conversationRef);
+    if (!conversationSnap.exists()) return;
     const conversation = conversationSnap.data() as ConversationDocument;
+    const currentUnread = conversation?.unreadCount?.[currentUserId] || 0;
+    if (currentUnread <= 0) return;
     await updateDoc(conversationRef, {
       unreadCount: {
         ...conversation.unreadCount,
         [currentUserId]: 0,
       },
     });
+    return;
+  }
+
+  const updatePromises = snapshot.docs.map((doc) => updateDoc(doc.ref, { read: true }));
+  await Promise.all(updatePromises);
+
+  // Update conversation unread count (only after we actually marked messages as read)
+  const conversationRef = doc(db, CONVERSATIONS_COLLECTION, conversationId);
+  const conversationSnap = await getDoc(conversationRef);
+  if (conversationSnap.exists()) {
+    const conversation = conversationSnap.data() as ConversationDocument;
+    const currentUnread = conversation?.unreadCount?.[currentUserId] || 0;
+    if (currentUnread > 0) {
+      await updateDoc(conversationRef, {
+        unreadCount: {
+          ...conversation.unreadCount,
+          [currentUserId]: 0,
+        },
+      });
+    }
   }
 }
 
@@ -240,7 +290,8 @@ export async function markMessagesAsRead(
 export function subscribeToMessages(
   userId1: string,
   userId2: string,
-  callback: (messages: MessageDocument[]) => void
+  callback: (messages: MessageDocument[]) => void,
+  onError?: (error: unknown) => void
 ): Unsubscribe {
   const conversationId = getConversationId(userId1, userId2);
   const messagesRef = collection(db, MESSAGES_COLLECTION);
@@ -267,6 +318,9 @@ export function subscribeToMessages(
     (snapshot) => {
       sentItems = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as MessageDocument[];
       emit();
+    },
+    (error) => {
+      onError?.(error);
     }
   );
 
@@ -275,6 +329,9 @@ export function subscribeToMessages(
     (snapshot) => {
       receivedItems = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as MessageDocument[];
       emit();
+    },
+    (error) => {
+      onError?.(error);
     }
   );
 
@@ -289,7 +346,8 @@ export function subscribeToMessages(
  */
 export function subscribeToConversations(
   userId: string,
-  callback: (conversations: ConversationDocument[]) => void
+  callback: (conversations: ConversationDocument[]) => void,
+  onError?: (error: unknown) => void
 ): Unsubscribe {
   const conversationsRef = collection(db, CONVERSATIONS_COLLECTION);
   const q = query(
@@ -297,7 +355,9 @@ export function subscribeToConversations(
     where('participantIds', 'array-contains', userId)
   );
 
-  return onSnapshot(q, (snapshot) => {
+  return onSnapshot(
+    q,
+    (snapshot) => {
     const conversations = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
@@ -310,5 +370,9 @@ export function subscribeToConversations(
     });
 
     callback(conversations);
-  });
+    },
+    (error) => {
+      onError?.(error);
+    }
+  );
 }

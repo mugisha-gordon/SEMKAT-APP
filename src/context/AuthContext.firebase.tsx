@@ -10,8 +10,10 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithCredential,
   type User as FirebaseUser,
 } from "firebase/auth";
+import { Capacitor } from "@capacitor/core";
 import { auth } from "@/integrations/firebase/client";
 import { createUserDocument, getUserDocument, getUserRole } from "@/integrations/firebase/users";
 
@@ -104,18 +106,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      // Check if user document exists, create if not (first-time Google login)
-      const userDoc = await getUserDocument(result.user.uid);
-      if (!userDoc) {
-        await createUserDocument(
-          result.user.uid,
-          result.user.email || '',
-          result.user.displayName || undefined
-        );
+      // Use native Capacitor Google Auth on Android/iOS, fallback to popup on web
+      const platformIsWeb = Capacitor.getPlatform && Capacitor.getPlatform() === 'web';
+
+      if (!platformIsWeb) {
+        // Dynamic import to avoid bundler issues on web
+        const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+        // Call native sign-in
+        const res: any = await GoogleAuth.signIn();
+        const idToken = res?.authentication?.idToken || res?.idToken;
+        if (!idToken) throw new Error('No idToken from Google native sign-in');
+        const credential = GoogleAuthProvider.credential(idToken);
+        const userCred = await signInWithCredential(auth, credential);
+        const userDoc = await getUserDocument(userCred.user.uid);
+        if (!userDoc) {
+          await createUserDocument(
+            userCred.user.uid,
+            userCred.user.email || '',
+            userCred.user.displayName || undefined
+          );
+        }
+      } else {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        const userDoc = await getUserDocument(result.user.uid);
+        if (!userDoc) {
+          await createUserDocument(
+            result.user.uid,
+            result.user.email || '',
+            result.user.displayName || undefined
+          );
+        }
       }
+
       return { error: undefined };
     } catch (error: any) {
       return { error: error.message };

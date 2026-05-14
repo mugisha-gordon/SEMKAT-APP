@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   Timestamp,
   onSnapshot,
+  arrayUnion,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './client';
@@ -27,9 +28,14 @@ export interface NotificationDocument {
   updatedAt: Timestamp;
   readAt?: Timestamp;
 
+  // Actor metadata (who triggered the notification)
+  actorId?: string;
+
   // Targeting
   audience: 'all' | 'user';
   userId?: string;
+  targetPath?: string;
+  dismissedBy?: string[];
 }
 
 const COLLECTION_NAME = 'notifications';
@@ -40,6 +46,8 @@ export async function createNotification(input: {
   type: NotificationType;
   audience: 'all' | 'user';
   userId?: string;
+  actorId?: string;
+  targetPath?: string;
 }): Promise<string> {
   const ref = collection(db, COLLECTION_NAME);
   const payload: any = {
@@ -48,10 +56,15 @@ export async function createNotification(input: {
     type: input.type,
     audience: input.audience,
     userId: input.audience === 'user' ? input.userId : undefined,
+    actorId: input.actorId,
+    targetPath: input.targetPath,
+    dismissedBy: [],
     createdAt: serverTimestamp() as unknown as Timestamp,
     updatedAt: serverTimestamp() as unknown as Timestamp,
   };
   if (payload.userId === undefined) delete payload.userId;
+  if (payload.actorId === undefined) delete payload.actorId;
+  if (payload.targetPath === undefined) delete payload.targetPath;
   const r = await addDoc(ref, payload);
   return r.id;
 }
@@ -73,7 +86,9 @@ export async function getNotificationsForUser(userId: string, options?: { limit?
     });
   }
 
-  return Array.from(byId.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+  return Array.from(byId.values())
+    .filter((n) => !(n.dismissedBy || []).includes(userId))
+    .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 }
 
 export async function getNotification(notificationId: string): Promise<NotificationDocument | null> {
@@ -89,6 +104,26 @@ export async function markNotificationAsRead(notificationId: string): Promise<vo
     readAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+}
+
+export async function markAllNotificationsAsRead(notifications: NotificationDocument[]): Promise<void> {
+  const unread = notifications.filter((n) => !n.readAt);
+  await Promise.all(unread.map((n) => markNotificationAsRead(n.id)));
+}
+
+export async function dismissNotificationForUser(notificationId: string, userId: string): Promise<void> {
+  const ref = doc(db, COLLECTION_NAME, notificationId);
+  await updateDoc(ref, {
+    dismissedBy: arrayUnion(userId),
+    updatedAt: Timestamp.now(),
+  });
+}
+
+export async function dismissAllNotificationsForUser(
+  notifications: NotificationDocument[],
+  userId: string
+): Promise<void> {
+  await Promise.all(notifications.map((n) => dismissNotificationForUser(n.id, userId)));
 }
 
 export function subscribeToNotificationsForUser(
@@ -112,6 +147,7 @@ export function subscribeToNotificationsForUser(
     }
     callback(
       Array.from(byId.values()).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis())
+        .filter((n) => !(n.dismissedBy || []).includes(userId))
     );
   };
 

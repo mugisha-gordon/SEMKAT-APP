@@ -60,23 +60,23 @@ const Agents = () => {
       
       <main className="flex-1">
         {/* Hero */}
-        <section className="bg-gradient-hero py-16 relative overflow-hidden">
+        <section className="bg-gradient-hero py-10 sm:py-16 relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1920')] bg-cover bg-center mix-blend-overlay opacity-10" />
           <div className="container relative">
             <Badge variant="featured" className="mb-4">Meet Our Team</Badge>
-            <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-foreground mb-4">
+            <h1 className="font-heading text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-foreground mb-3 sm:mb-4">
               Expert Real Estate Agents
             </h1>
-            <p className="text-primary-foreground/80 text-lg max-w-2xl">
+            <p className="text-primary-foreground/80 text-sm xs:text-base sm:text-lg max-w-2xl">
               Connect with experienced professionals dedicated to helping you find your perfect property investment.
             </p>
           </div>
         </section>
 
         {/* Stats */}
-        <section className="py-12 bg-card border-b">
+        <section className="py-8 sm:py-12 bg-card border-b">
           <div className="container">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center">
               {[
                 { value: '50+', label: 'Expert Agents' },
                 { value: '1,200+', label: 'Properties Sold' },
@@ -84,8 +84,8 @@ const Agents = () => {
                 { value: '10+', label: 'Years Experience' },
               ].map((stat) => (
                 <div key={stat.label}>
-                  <div className="font-heading text-3xl font-bold text-primary">{stat.value}</div>
-                  <div className="text-sm text-muted-foreground">{stat.label}</div>
+                  <div className="font-heading text-2xl xs:text-3xl font-bold text-primary">{stat.value}</div>
+                  <div className="text-xs xs:text-sm text-muted-foreground">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -93,14 +93,14 @@ const Agents = () => {
         </section>
 
         {/* Agents grid */}
-        <section className="py-16 bg-muted/30">
+        <section className="py-10 sm:py-16 bg-muted/30">
           <div className="container">
             {loading ? (
               <div className="text-center py-16">
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {agents.map((agent, index) => (
                   <Card 
                     key={agent.id} 
@@ -116,26 +116,26 @@ const Agents = () => {
                             <img
                               src={agent.avatar}
                               alt={agent.name}
-                              className="w-24 h-24 rounded-full object-cover ring-4 ring-background shadow-lg"
+                              className="w-20 h-20 xs:w-24 xs:h-24 rounded-full object-cover ring-4 ring-background shadow-lg"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
                             />
                           ) : (
-                            <div className="w-24 h-24 rounded-full ring-4 ring-background shadow-lg bg-muted" />
+                            <div className="w-20 h-20 xs:w-24 xs:h-24 rounded-full ring-4 ring-background shadow-lg bg-muted" />
                           )}
                         </Link>
                       </div>
                     </div>
 
                     {/* Content */}
-                    <div className="pt-14 pb-6 px-6 text-center">
+                    <div className="pt-14 pb-6 px-4 sm:px-6 text-center">
                       <Link to={`/profile/${agent.id}`} className="inline-block">
-                        <h3 className="font-heading text-lg font-semibold text-foreground mb-1 hover:underline">
+                        <h3 className="font-heading text-base xs:text-lg font-semibold text-foreground mb-1 hover:underline">
                           {agent.name}
                         </h3>
                       </Link>
-                      <p className="text-sm text-muted-foreground mb-3">Real Estate Consultant</p>
+                      <p className="text-xs xs:text-sm text-muted-foreground mb-3">Real Estate Consultant</p>
                       
                       {/* Rating */}
                       <div className="flex items-center justify-center gap-2 mb-4">
@@ -151,11 +151,11 @@ const Agents = () => {
                             />
                           ))}
                         </div>
-                        <span className="text-sm font-medium">{agent.rating}</span>
+                        <span className="text-xs xs:text-sm font-medium">{agent.rating}</span>
                       </div>
 
                       {/* Stats */}
-                      <div className="flex justify-center gap-4 mb-4 text-sm">
+                      <div className="flex justify-center gap-4 mb-4 text-xs xs:text-sm">
                         <div className="flex items-center gap-1 text-muted-foreground">
                           <Building className="h-4 w-4" />
                           <span>{agent.totalListings} listings</span>
@@ -165,6 +165,7 @@ const Agents = () => {
                       <MessageAgentButton
                         agentId={agent.id}
                         agentName={agent.name}
+                        label="Message Agent"
                         variant="hero"
                         className="w-full"
                       />
@@ -189,20 +190,11 @@ const Agents = () => {
             <div className="grid md:grid-cols-3 gap-6">
               {[
                 {
-                  city: 'Kampala (HQ)',
-                  address: 'Plot 45, Kampala Road',
-                  phone: '+256 700 123 456',
+                  city: 'Wakiso District, Kayunga (HQ)',
+                  address: 'Hoima Road, Kayunga',
+                  phone: '+256 772336754/ +256 200 999 599',
                 },
-                {
-                  city: 'Entebbe',
-                  address: 'Entebbe Airport Road',
-                  phone: '+256 700 234 567',
-                },
-                {
-                  city: 'Mukono',
-                  address: 'Mukono Town Center',
-                  phone: '+256 700 345 678',
-                },
+                
               ].map((office) => (
                 <Card key={office.city} variant="elevated" className="p-6">
                   <div className="flex items-start gap-4">

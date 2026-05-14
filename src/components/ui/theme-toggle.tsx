@@ -1,5 +1,5 @@
 import { useTheme } from "next-themes";
-import { Moon, Sun, Monitor } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const ThemeToggle = () => {
@@ -8,11 +8,10 @@ const ThemeToggle = () => {
   const options: { label: string; value: string; icon: React.ReactNode }[] = [
     { label: "Light", value: "light", icon: <Sun className="h-4 w-4" /> },
     { label: "Dark", value: "dark", icon: <Moon className="h-4 w-4" /> },
-    { label: "System", value: "system", icon: <Monitor className="h-4 w-4" /> },
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 gap-2">
       {options.map((option) => (
         <Button
           key={option.value}

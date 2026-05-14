@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { subscribeToUserDocument, updateUserDocument } from "@/integrations/firebase/users";
 import { uploadImage } from "@/integrations/firebase/storage";
 import { toast } from "sonner";
+import ThemeToggle from "@/components/ui/theme-toggle";
 
 const Settings = () => {
   const { user, loading } = useAuth();
@@ -61,30 +62,30 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
 
       <main className="flex-1 pb-12">
         <section className="relative overflow-hidden py-8 sm:py-12">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(249,115,22,0.2),transparent_35%),radial-gradient(circle_at_80%_10%,rgba(14,165,233,0.2),transparent_35%)]" />
           <div className="container relative">
-            <Badge variant="outline" className="border-white/30 text-white mb-3">Control Center</Badge>
+            <Badge variant="outline" className="border-border text-foreground mb-3">Control Center</Badge>
             <h1 className="font-heading text-2xl sm:text-3xl font-bold">Settings</h1>
-            <p className="text-white/70 text-sm mt-1">Personalize your Semkat experience with theme, alerts, and locale.</p>
+            <p className="text-muted-foreground text-sm mt-1">Personalize your Semkat experience with theme, alerts, and locale.</p>
           </div>
         </section>
 
         <section className="container grid gap-4 sm:gap-6 lg:grid-cols-2">
-          <Card className="bg-white/5 border-white/10 text-white p-4 sm:p-6 space-y-4">
+          <Card className="bg-card border-border text-card-foreground p-4 sm:p-6 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <Avatar className="h-12 w-12 border border-white/15">
+                <Avatar className="h-12 w-12 border border-border">
                   <AvatarImage src={avatarUrl || undefined} />
-                  <AvatarFallback className="bg-white/10 text-white/80">{initials}</AvatarFallback>
+                  <AvatarFallback className="bg-muted text-foreground/80">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
                   <h2 className="font-heading text-xl font-semibold truncate">Profile</h2>
-                  <p className="text-white/60 text-sm truncate">{user?.email || ''}</p>
+                  <p className="text-muted-foreground text-sm truncate">{user?.email || ''}</p>
                 </div>
               </div>
 
@@ -105,7 +106,7 @@ const Settings = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/10 w-full sm:w-auto"
+                    className="w-full sm:w-auto"
                     disabled={!user || uploading || loading}
                     onClick={() => {
                       if (!user || uploading || loading) return;
@@ -118,54 +119,49 @@ const Settings = () => {
                 </div>
               </div>
             </div>
-            <p className="text-white/70 text-sm">
+            <p className="text-muted-foreground text-sm">
               Your profile picture will appear across Explore, Agents, Messaging, and anywhere your avatar is shown.
             </p>
           </Card>
 
-          <Card className="bg-white/5 border-white/10 text-white p-4 sm:p-6 space-y-4">
+          <Card className="bg-card border-border text-card-foreground p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-sky-300" />
               <h2 className="font-heading text-xl font-semibold">Appearance</h2>
             </div>
-            <p className="text-white/70 text-sm">Dark theme is enabled for optimal viewing experience.</p>
-            <div className="px-4 py-3 rounded-lg bg-white/5 border border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-semkat-orange"></div>
-                <span className="text-white/80">Dark Mode Active</span>
-              </div>
-            </div>
+            <p className="text-muted-foreground text-sm">Choose your preferred theme. Dark mode is the default.</p>
+            <ThemeToggle />
           </Card>
 
-          <Card className="bg-white/5 border-white/10 text-white p-4 sm:p-6 space-y-4">
+          <Card className="bg-card border-border text-card-foreground p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-orange-300" />
               <h2 className="font-heading text-xl font-semibold">Notifications</h2>
             </div>
-            <p className="text-white/70 text-sm">Control alerts for price updates, documentation, and appointments.</p>
+            <p className="text-muted-foreground text-sm">Control alerts for price updates, documentation, and appointments.</p>
             <div className="flex flex-wrap gap-3">
               {["Price updates", "Docs & verification", "Messages", "Appointments"].map((label) => (
-                <Toggle key={label} variant="outline" aria-label={label} pressed className="border-white/30 text-white">
+                <Toggle key={label} variant="outline" aria-label={label} pressed>
                   {label}
                 </Toggle>
               ))}
             </div>
           </Card>
 
-          <Card className="bg-white/5 border-white/10 text-white p-4 sm:p-6 space-y-4">
+          <Card className="bg-card border-border text-card-foreground p-4 sm:p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Globe2 className="h-5 w-5 text-sky-300" />
               <h2 className="font-heading text-xl font-semibold">Locale</h2>
             </div>
-            <p className="text-white/70 text-sm">Prepare for international users: currency, language, and units.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-white/80">
+            <p className="text-muted-foreground text-sm">Prepare for international users: currency, language, and units.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-foreground/80">
               <div className="space-y-1">
-                <div className="text-white/60 text-xs">Currency (coming soon)</div>
-                <div className="px-3 py-2 rounded-lg bg-white/10 border border-white/15">UGX / USD</div>
+                <div className="text-muted-foreground text-xs">Currency (coming soon)</div>
+                <div className="px-3 py-2 rounded-lg bg-muted border border-border">UGX / USD</div>
               </div>
               <div className="space-y-1">
-                <div className="text-white/60 text-xs">Language (coming soon)</div>
-                <div className="px-3 py-2 rounded-lg bg-white/10 border border-white/15">English</div>
+                <div className="text-muted-foreground text-xs">Language (coming soon)</div>
+                <div className="px-3 py-2 rounded-lg bg-muted border border-border">English</div>
               </div>
             </div>
           </Card>

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, MapPin, Phone, User, Heart, Bell, LayoutDashboard, LogOut, ChevronLeft, MessageCircle } from 'lucide-react';
+import { Menu, X, MapPin, Phone, User, Heart, Bell, LayoutDashboard, LogOut, ChevronLeft, MessageCircle, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { subscribeToUserDocument } from '@/integrations/firebase/users';
+import { subscribeToConversations } from '@/integrations/firebase/messages';
+import { subscribeToNotificationsForUser } from '@/integrations/firebase/notifications';
+import { useTheme } from 'next-themes';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,25 +21,58 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
+  const [tagline, setTagline] = useState("to the end...");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const userId = user?.uid || null;
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setAvatarUrl(null);
       setFullName(null);
+      setUnreadMessages(0);
+      setUnreadNotifications(0);
       return;
     }
 
-    const unsub = subscribeToUserDocument(user.uid, (doc) => {
-      setAvatarUrl(doc?.profile?.avatarUrl || null);
-      setFullName(doc?.profile?.fullName || null);
+    const unsub = subscribeToUserDocument(userId, (doc) => {
+      const nextAvatar = doc?.profile?.avatarUrl || null;
+      const nextName = doc?.profile?.fullName || null;
+      setAvatarUrl((prev) => (prev === nextAvatar ? prev : nextAvatar));
+      setFullName((prev) => (prev === nextName ? prev : nextName));
     });
 
     return () => {
       unsub();
     };
-  }, [user]);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const unsubConvos = subscribeToConversations(userId, (convos) => {
+      const total = (convos || []).reduce((acc: number, c: any) => {
+        const unread = c?.unreadCount?.[userId] || 0;
+        return acc + (unread > 0 ? unread : 0);
+      }, 0);
+      setUnreadMessages((prev) => (prev === total ? prev : total));
+    });
+
+    const unsubNotifs = subscribeToNotificationsForUser(userId, (items) => {
+      // Only count user-targeted notifications as "unread" to avoid global notifications
+      // showing as permanently unread (global docs cannot be marked read per current rules).
+      const total = (items || []).filter((n: any) => n?.audience === 'user' && !n?.readAt).length;
+      setUnreadNotifications((prev) => (prev === total ? prev : total));
+    }, { limit: 50 });
+
+    return () => {
+      try { unsubConvos(); } catch {}
+      try { unsubNotifs(); } catch {}
+    };
+  }, [userId]);
 
   const initials = useMemo(() => {
     const s = (fullName || user?.email || 'U').trim();
@@ -80,14 +116,14 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-[80] w-full glass-strong glass-border">
       {/* Top bar */}
       <div className="hidden border-b bg-muted/50 md:block">
         <div className="container flex h-10 items-center justify-between text-sm">
           <div className="flex items-center gap-6">
-            <a href="tel:+256700123456" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors">
+            <a href="tel:+256772336754" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors">
               <Phone className="h-3.5 w-3.5" />
-              +256 700 123 456
+              +256 772336754
             </a>
             <span className="flex items-center gap-1.5 text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" />
@@ -101,8 +137,26 @@ const Header = () => {
                 <Heart className="h-3.5 w-3.5" />
                 Saved
               </Link>
+              <Link to="/messages" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors">
+                <span className="relative inline-flex items-center">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  {unreadMessages > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-semkat-orange text-white text-[10px] leading-4 text-center">
+                      {unreadMessages > 99 ? '99+' : unreadMessages}
+                    </span>
+                  )}
+                </span>
+                Messages
+              </Link>
               <Link to="/notifications" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors">
-                <Bell className="h-3.5 w-3.5" />
+                <span className="relative inline-flex items-center">
+                  <Bell className="h-3.5 w-3.5" />
+                  {unreadNotifications > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-semkat-orange text-white text-[10px] leading-4 text-center">
+                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                    </span>
+                  )}
+                </span>
                 Alerts
               </Link>
             </div>
@@ -111,7 +165,11 @@ const Header = () => {
       </div>
 
       {/* Main header */}
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex flex-wrap md:flex-nowrap min-h-16 h-auto items-center justify-between gap-2 sm:gap-3 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-20 -left-24 h-56 w-56 rounded-full bg-semkat-sky/15 blur-3xl" />
+          <div className="absolute -top-16 -right-24 h-56 w-56 rounded-full bg-semkat-orange/15 blur-3xl" />
+        </div>
         <div className="flex items-center gap-2 min-w-0">
           <Button
             type="button"
@@ -125,23 +183,45 @@ const Header = () => {
             <ChevronLeft className="h-5 w-5" />
           </Button>
 
-          <Link to="/" className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center justify-center h-14 w-14  shadow-md">
+          <Link
+            to="/home"
+            className="flex items-center gap-3 min-w-0"
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              try {
+                navigator.vibrate?.(15);
+              } catch {
+                // ignore
+              }
+              const options = [
+                "to the end...",
+                "glass mode: on",
+                "shimmering routes",
+                "tap again for magic",
+                "semkat sparkle",
+              ];
+              setTagline((prev) => {
+                const idx = options.indexOf(prev);
+                return options[(idx + 1) % options.length];
+              });
+            }}
+          >
+            <div className="flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 rounded-2xl glass glass-border shadow-md">
               <img 
-                src="/LOGO.png" 
+                src="/semkat-logo.png" 
                 alt="Semkat Group Uganda Limited" 
                 className="h-10 w-10 object-contain"
                 onError={(e) => {
-                  // Fallback if SVG doesn't load
+                  // Fallback if image doesn't load
                   e.currentTarget.style.display = 'none';
                 }}
               />
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-heading text-lg font-bold text-foreground leading-tight truncate">
-                Semkat App
+                Semkat Group Uganda Ltd
               </span>
-              <span className="text-xs text-muted-foreground truncate">to the end...</span>
+              <span className="text-xs text-muted-foreground truncate">{tagline}</span>
             </div>
           </Link>
         </div>
@@ -160,7 +240,17 @@ const Header = () => {
         </nav>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Toggle theme"
+            title="Toggle theme"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          >
+            {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </Button>
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -243,11 +333,11 @@ const Header = () => {
       {/* Mobile navigation */}
       <div
         className={cn(
-          "lg:hidden absolute top-full left-0 right-0 bg-background border-b shadow-lg transition-all duration-300 overflow-hidden",
-          isMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+          "lg:hidden fixed top-16 left-0 right-0 z-[90] glass-strong glass-border shadow-lg transition-all duration-300 overflow-y-auto",
+          isMenuOpen ? "max-h-[calc(100dvh-4rem)] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
         )}
       >
-        <nav className="container py-4 flex flex-col gap-1">
+        <nav className="container py-4 pb-28 flex flex-col gap-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -261,6 +351,14 @@ const Header = () => {
           <div className="border-t my-2" />
           {user ? (
             <>
+              <Link
+                to="/messages"
+                className="px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors flex items-center gap-2"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Messages
+              </Link>
               <Link
                 to={getDashboardLink()}
                 className="px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors flex items-center gap-2"

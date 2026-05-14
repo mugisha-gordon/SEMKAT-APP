@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { uploadVideo, deleteFile } from "@/integrations/firebase/storage";
 import { Plus, Video, Upload, X, Zap, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { compressVideo, shouldCompressVideo } from "@/utils/videoCompression";
+import { Capacitor } from "@capacitor/core";
 
 interface VideoPostFormProps {
   onSuccess?: () => void;
@@ -21,6 +22,59 @@ interface VideoPostFormProps {
 }
 
 type UploadStage = 'idle' | 'compressing' | 'uploading' | 'creating' | 'complete';
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.3gp'] as const;
+const IS_NATIVE_ANDROID = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+
+const isLikelyVideoFile = (file: File): boolean => {
+  if (file.type?.startsWith('video/')) {
+    return true;
+  }
+
+  const fileName = file.name.toLowerCase();
+  return VIDEO_EXTENSIONS.some((ext) => fileName.endsWith(ext));
+};
+
+const sniffVideoContainer = async (file: File): Promise<boolean> => {
+  try {
+    const header = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+
+    // MP4/M4V/MOV: "ftyp" at offset 4
+    if (
+      header.length >= 12 &&
+      header[4] === 0x66 && // f
+      header[5] === 0x74 && // t
+      header[6] === 0x79 && // y
+      header[7] === 0x70 // p
+    ) {
+      return true;
+    }
+
+    // WebM/Matroska: 1A 45 DF A3 (EBML)
+    if (
+      header.length >= 4 &&
+      header[0] === 0x1a &&
+      header[1] === 0x45 &&
+      header[2] === 0xdf &&
+      header[3] === 0xa3
+    ) {
+      return true;
+    }
+
+    // 3GP: also ISO-BMFF with ftyp, but some put it at offset 0 (rare)
+    if (
+      header.length >= 8 &&
+      header[0] === 0x66 &&
+      header[1] === 0x74 &&
+      header[2] === 0x79 &&
+      header[3] === 0x70
+    ) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+};
 
 const VideoPostForm = ({
   onSuccess,
@@ -66,10 +120,14 @@ const VideoPostForm = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('video/')) {
-      toast.error('Please select a video file');
-      return;
+    // Some devices return an empty MIME type for valid video files.
+    // Fall back to extension checks so uploads are not blocked.
+    if (!isLikelyVideoFile(file)) {
+      const looksLikeVideo = await sniffVideoContainer(file);
+      if (!looksLikeVideo) {
+        toast.error('Please select a video file');
+        return;
+      }
     }
 
     // Increased max size to 200MB for better UX
@@ -81,14 +139,19 @@ const VideoPostForm = ({
 
     setOriginalSize(file.size);
 
-    // Only compress files over 30MB for faster uploads
-    if (shouldCompressVideo(file, 30)) {
+    // Skip compression in native Android WebView to avoid MediaRecorder incompatibilities.
+    // Uploading the original file is more reliable in APK builds.
+    const shouldCompress = !IS_NATIVE_ANDROID && shouldCompressVideo(file, 180);
+
+    // Only compress files over 180MB on web.
+    // 180MB and below should be uploaded as-is.
+    if (shouldCompress) {
       setStage('compressing');
       setCompressionProgress(0);
       
       try {
         const compressedFile = await compressVideo(file, {
-          maxSizeMB: 30,
+          maxSizeMB: 180,
           onProgress: setCompressionProgress,
         });
         
@@ -362,8 +425,17 @@ const VideoPostForm = ({
           disabled={!user}
           title={!user ? "Please log in to post videos" : "Post a video"}
         >
-          <Plus className="h-6 w-6" />
-          {triggerLabel}
+          {triggerSize === "icon" ? (
+            <>
+              <Plus className="h-6 w-6" />
+              <span className="sr-only">{triggerLabel || "Post Video"}</span>
+            </>
+          ) : (
+            <>
+              <Plus className="h-5 w-5" />
+              {triggerLabel}
+            </>
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -372,6 +444,9 @@ const VideoPostForm = ({
             <Video className="h-5 w-5" />
             Post New Video
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Upload and publish a short property video with title, location, and optional description.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
@@ -489,6 +564,31 @@ const VideoPostForm = ({
               </div>
             )}
           </div>
+
+          {(stage === 'uploading' || stage === 'creating') && (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              {stage === 'creating' ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-semkat-orange border-t-transparent rounded-full animate-spin" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white/80">Saving video...</p>
+                    <p className="text-xs text-white/50">Please wait</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-white/80">
+                    <span>Uploading...</span>
+                    <span>{Math.round(uploadProgress)}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-3 bg-white/20" />
+                  {uploadSpeed && (
+                    <p className="text-xs text-white/60">{uploadSpeed}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Description</Label>

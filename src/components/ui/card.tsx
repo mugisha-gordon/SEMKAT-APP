@@ -4,15 +4,15 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const cardVariants = cva(
-  "rounded-xl border bg-card text-card-foreground transition-all duration-300",
+  "rounded-2xl border border-border/70 bg-card text-card-foreground transition-all duration-300",
   {
     variants: {
       variant: {
-        default: "shadow-sm hover:shadow-md",
-        elevated: "shadow-md hover:shadow-lg hover:-translate-y-1",
-        property: "shadow-card hover:shadow-lg hover:-translate-y-2 cursor-pointer overflow-hidden",
+        default: "glass glass-border spotlight shadow-sm hover:shadow-md hover:border-border/90",
+        elevated: "glass glass-border spotlight shadow-md hover:shadow-lg hover:border-border/90",
+        property: "glass glass-border spotlight shadow-card hover:shadow-lg hover:border-border/90 cursor-pointer overflow-hidden",
         flat: "border-0 shadow-none",
-        gradient: "border-0 bg-gradient-to-br from-card to-muted",
+        gradient: "border-0 bg-gradient-to-br from-card to-muted shadow-sm",
       },
     },
     defaultVariants: {
@@ -26,9 +26,33 @@ export interface CardProps
     VariantProps<typeof cardVariants> {}
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant, ...props }, ref) => (
-    <div ref={ref} className={cn(cardVariants({ variant, className }))} {...props} />
-  )
+  ({ className, variant, onPointerMove, onPointerLeave, ...props }, ref) => {
+    const handlePointerMove: React.PointerEventHandler<HTMLDivElement> = (e) => {
+      const el = e.currentTarget;
+      const r = el.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) * 100;
+      const y = ((e.clientY - r.top) / r.height) * 100;
+      el.style.setProperty("--spotlight-x", `${x}%`);
+      el.style.setProperty("--spotlight-y", `${y}%`);
+      el.style.setProperty("--spotlight-o", "1");
+      onPointerMove?.(e);
+    };
+
+    const handlePointerLeave: React.PointerEventHandler<HTMLDivElement> = (e) => {
+      e.currentTarget.style.setProperty("--spotlight-o", "0");
+      onPointerLeave?.(e);
+    };
+
+    return (
+      <div
+        ref={ref}
+        className={cn(cardVariants({ variant, className }))}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
+        {...props}
+      />
+    );
+  }
 );
 Card.displayName = "Card";
 
