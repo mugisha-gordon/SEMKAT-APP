@@ -266,7 +266,7 @@ const GoogleTranslate = () => {
   return (
     <div
       ref={panelRef}
-      className={defaultPlacement ? "fixed top-20 right-2 z-[120] sm:right-4" : "fixed z-[120]"}
+      className={defaultPlacement ? "fixed top-28 right-2 z-[120] sm:right-4 lg:top-20" : "fixed z-[120]"}
       style={
         widgetPos
           ? {
